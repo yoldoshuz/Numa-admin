@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { TOKEN_KEY } from "./lib/constants";
 
-export const middleware = (request: NextRequest) => {
+export const proxy = (request: NextRequest) => {
   const token = request.cookies.get(TOKEN_KEY)?.value;
   const { pathname } = request.nextUrl;
 
