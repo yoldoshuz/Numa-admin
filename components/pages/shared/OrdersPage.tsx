@@ -98,6 +98,7 @@ export const OrdersPage = ({ basePath, showStoreFilter = false }: OrdersPageProp
               <SelectItem value="pending">Ожидает</SelectItem>
               <SelectItem value="paid">Оплачен</SelectItem>
               <SelectItem value="failed">Ошибка</SelectItem>
+              <SelectItem value="expired">Истёк</SelectItem>
               <SelectItem value="refunded">Возврат</SelectItem>
             </SelectContent>
           </Select>

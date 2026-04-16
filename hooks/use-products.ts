@@ -57,6 +57,8 @@ export interface CreateProductPayload {
   categoryId: string;
   status?: ProductStatus;
   isFeatured?: boolean;
+  brand?: string | null;
+  attributes?: Record<string, string | number | boolean> | null;
 }
 
 export const useCreateProduct = () => {

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, CreditCard, MapPin, Package, Phone, User as UserIcon } from "lucide-react";
+import { ArrowLeft, CreditCard, MapPin, Package, Phone, Truck, User as UserIcon } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,7 +20,7 @@ import { OrderStatusBadge, PaymentStatusBadge } from "@/components/shared/Status
 import { StoreBadge } from "@/components/shared/StoreBadge";
 import { useOrder, useUpdateOrderStatus } from "@/hooks/use-orders";
 import { formatDate, formatPrice, getLocalized } from "@/lib/format";
-import { PAYMENT_METHOD_LABEL } from "@/lib/constants";
+import { DELIVERY_TYPE_LABEL, PAYMENT_METHOD_LABEL } from "@/lib/constants";
 import type { OrderStatus } from "@/lib/types";
 
 interface OrderDetailPageProps {
@@ -149,6 +149,13 @@ export const OrderDetailPage = ({ basePath, orderId }: OrderDetailPageProps) => 
                 </div>
               )}
               <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Доставка</span>
+                <span className="flex items-center gap-1.5 text-sm font-medium">
+                  <Truck className="size-3.5 text-muted-foreground" />
+                  {DELIVERY_TYPE_LABEL[order.deliveryType] ?? order.deliveryType}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Магазин</span>
                 <StoreBadge store={order.store} />
               </div>
@@ -198,10 +205,12 @@ export const OrderDetailPage = ({ basePath, orderId }: OrderDetailPageProps) => 
                   </a>
                 </div>
               )}
-              <div className="flex items-start gap-2">
-                <MapPin className="size-4 mt-0.5 text-muted-foreground" />
-                <p className="font-medium">{order.customerAddress}</p>
-              </div>
+              {order.customerAddress && (
+                <div className="flex items-start gap-2">
+                  <MapPin className="size-4 mt-0.5 text-muted-foreground" />
+                  <p className="font-medium">{order.customerAddress}</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

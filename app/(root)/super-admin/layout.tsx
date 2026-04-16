@@ -1,3 +1,5 @@
+"use client";
+
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { superAdminNav } from "@/components/layout/nav-config";
 

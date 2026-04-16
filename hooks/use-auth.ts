@@ -22,7 +22,7 @@ export const useLogin = () => {
       return data.data;
     },
     onSuccess: (data) => {
-      setAuth(data.token, data.admin);
+      setAuth(data.accessToken, data.admin, data.refreshToken);
       toast.success(`Добро пожаловать, ${data.admin.name}`);
       const target = data.admin.role === "super_admin" ? "/super-admin" : "/admin";
       router.push(target);

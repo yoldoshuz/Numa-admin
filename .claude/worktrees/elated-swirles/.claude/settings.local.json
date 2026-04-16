@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//d/numa-admin/app/**)",
+      "Read(//d/numa-admin/app/\\(auth\\)/**)",
+      "Read(//d/numa-admin/app/\\(root\\)/**)",
+      "Read(//d/numa-admin/**)",
+      "Bash(rm -rf .next)",
+      "Bash(npx next:*)",
+      "Bash(tasklist)",
+      "Bash(curl -s -o - -w \"\\\\nHTTP:%{http_code}\\\\n\" http://localhost:3000/login --max-time 90)"
+    ]
+  }
+}

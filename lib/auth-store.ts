@@ -4,12 +4,14 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import Cookies from "js-cookie";
 import type { Admin } from "./types";
-import { TOKEN_KEY } from "./constants";
+import { TOKEN_KEY, REFRESH_KEY } from "./constants";
 
 interface AuthState {
   admin: Admin | null;
   token: string | null;
-  setAuth: (token: string, admin: Admin) => void;
+  refreshToken: string | null;
+  setAuth: (token: string, admin: Admin, refreshToken?: string) => void;
+  setTokens: (token: string, refreshToken?: string) => void;
   setAdmin: (admin: Admin) => void;
   clearAuth: () => void;
   hasPermission: (perm: string) => boolean;
@@ -21,14 +23,26 @@ export const useAuthStore = create<AuthState>()(
     (set, get) => ({
       admin: null,
       token: null,
-      setAuth: (token, admin) => {
+      refreshToken: null,
+      setAuth: (token, admin, refreshToken) => {
         Cookies.set(TOKEN_KEY, token, { expires: 7, sameSite: "lax" });
-        set({ token, admin });
+        if (refreshToken) {
+          Cookies.set(REFRESH_KEY, refreshToken, { expires: 7, sameSite: "lax" });
+        }
+        set({ token, admin, refreshToken: refreshToken ?? get().refreshToken });
+      },
+      setTokens: (token, refreshToken) => {
+        Cookies.set(TOKEN_KEY, token, { expires: 7, sameSite: "lax" });
+        if (refreshToken) {
+          Cookies.set(REFRESH_KEY, refreshToken, { expires: 7, sameSite: "lax" });
+        }
+        set({ token, refreshToken: refreshToken ?? get().refreshToken });
       },
       setAdmin: (admin) => set({ admin }),
       clearAuth: () => {
         Cookies.remove(TOKEN_KEY);
-        set({ token: null, admin: null });
+        Cookies.remove(REFRESH_KEY);
+        set({ token: null, admin: null, refreshToken: null });
       },
       hasPermission: (perm) => {
         const { admin } = get();
@@ -41,7 +55,11 @@ export const useAuthStore = create<AuthState>()(
     {
       name: "numa-auth",
       storage: createJSONStorage(() => localStorage),
-      partialize: (state) => ({ admin: state.admin, token: state.token }),
+      partialize: (state) => ({
+        admin: state.admin,
+        token: state.token,
+        refreshToken: state.refreshToken,
+      }),
     }
   )
 );

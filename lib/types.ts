@@ -35,7 +35,8 @@ export interface Admin {
 }
 
 export interface LoginResponse {
-  token: string;
+  accessToken: string;
+  refreshToken: string;
   admin: Admin;
 }
 
@@ -75,8 +76,12 @@ export interface Product {
   categoryId: string;
   status: ProductStatus;
   isFeatured: boolean;
+  brand: string | null;
+  attributes: Record<string, string | number | boolean> | null;
   media: ProductMedia[];
   category?: Category;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface PaginationMeta {
@@ -91,8 +96,9 @@ export interface ProductsList extends PaginationMeta {
 }
 
 export type OrderStatus = "new" | "processing" | "completed" | "cancelled";
-export type PaymentStatus = "unpaid" | "pending" | "paid" | "failed" | "refunded";
+export type PaymentStatus = "unpaid" | "pending" | "paid" | "failed" | "expired" | "refunded";
 export type PaymentMethod = "cash" | "click" | "payme";
+export type DeliveryType = "delivery" | "pickup";
 export type PaymentProvider = "click" | "payme";
 
 export interface OrderItem {
@@ -133,15 +139,18 @@ export interface Order {
   customerName: string | null;
   customerSurname: string | null;
   customerPhone: string | null;
-  customerAddress: string;
+  customerAddress: string | null;
+  deliveryType: DeliveryType;
   notes: string | null;
   status: OrderStatus;
   paymentStatus: PaymentStatus;
   paymentMethod: PaymentMethod | null;
   totalAmount: number;
+  reservedUntil: string | null;
   items: OrderItem[];
   payments?: PaymentTransaction[];
   createdAt: string;
+  updatedAt?: string;
 }
 
 export interface OrdersList extends PaginationMeta {

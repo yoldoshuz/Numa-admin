@@ -228,11 +228,15 @@ export const ProductsPage = ({ basePath, showStoreFilter = false }: ProductsPage
                         )}
                         <TableCell>
                           <div className="flex flex-col">
-                            <span className="font-medium">{formatPrice(p.price)}</span>
-                            {p.discountPrice && (
-                              <span className="text-xs text-muted-foreground line-through">
-                                {formatPrice(p.discountPrice)}
-                              </span>
+                            {p.discountPrice ? (
+                              <>
+                                <span className="font-medium text-emerald-600 dark:text-emerald-400">{formatPrice(p.discountPrice)}</span>
+                                <span className="text-xs text-muted-foreground line-through">
+                                  {formatPrice(p.price)}
+                                </span>
+                              </>
+                            ) : (
+                              <span className="font-medium">{formatPrice(p.price)}</span>
                             )}
                           </div>
                         </TableCell>
