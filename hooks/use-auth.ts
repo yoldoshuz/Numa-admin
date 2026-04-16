@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { api, extractError } from "@/lib/axios";
 import { queryKeys } from "@/lib/query-client";
 import { useAuthStore } from "@/lib/auth-store";
+import { normalizeAdmin } from "@/lib/format";
 import type { Admin, ApiSuccess, LoginResponse } from "@/lib/types";
 
 interface LoginPayload {
@@ -22,8 +23,9 @@ export const useLogin = () => {
       return data.data;
     },
     onSuccess: (data) => {
-      setAuth(data.accessToken, data.admin, data.refreshToken);
-      toast.success(`Добро пожаловать, ${data.admin.name}`);
+      const admin = normalizeAdmin(data.admin as Admin & { storeSlug?: string | null });
+      setAuth(data.accessToken, admin, data.refreshToken);
+      toast.success(`Добро пожаловать, ${admin.name}`);
       const target = data.admin.role === "super_admin" ? "/super-admin" : "/admin";
       router.push(target);
     },
@@ -39,8 +41,9 @@ export const useMe = () => {
     enabled: !!token,
     queryFn: async () => {
       const { data } = await api.get<ApiSuccess<Admin>>("/admin/me");
-      setAdmin(data.data);
-      return data.data;
+      const admin = normalizeAdmin(data.data as Admin & { storeSlug?: string | null });
+      setAdmin(admin);
+      return admin;
     },
   });
 };
@@ -53,7 +56,8 @@ export const useUpdateMe = () => {
       const { data } = await api.patch<ApiSuccess<Admin>>("/admin/me", payload);
       return data.data;
     },
-    onSuccess: (admin) => {
+    onSuccess: (raw) => {
+      const admin = normalizeAdmin(raw as Admin & { storeSlug?: string | null });
       setAdmin(admin);
       qc.invalidateQueries({ queryKey: queryKeys.auth.me });
       toast.success("Профиль обновлён");

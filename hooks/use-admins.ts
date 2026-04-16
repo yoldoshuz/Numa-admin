@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { api, extractError } from "@/lib/axios";
 import { queryKeys } from "@/lib/query-client";
+import { normalizeAdmin } from "@/lib/format";
 import type { Admin, ApiSuccess, StoreSlug } from "@/lib/types";
 
 interface AdminFilters {
@@ -15,7 +16,7 @@ export const useAdmins = (filters: AdminFilters = {}) =>
     queryKey: queryKeys.admins.list(filters),
     queryFn: async () => {
       const { data } = await api.get<ApiSuccess<Admin[]>>("/admin", { params: filters });
-      return data.data;
+      return (data.data ?? []).map((a) => normalizeAdmin(a as Admin & { storeSlug?: string | null }));
     },
   });
 
@@ -25,7 +26,7 @@ export const useAdmin = (id: string | undefined) =>
     enabled: !!id,
     queryFn: async () => {
       const { data } = await api.get<ApiSuccess<Admin>>(`/admin/${id}`);
-      return data.data;
+      return normalizeAdmin(data.data as Admin & { storeSlug?: string | null });
     },
   });
 

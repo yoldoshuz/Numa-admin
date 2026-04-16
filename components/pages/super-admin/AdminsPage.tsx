@@ -169,7 +169,7 @@ export const AdminsPage = () => {
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="icon"><MoreHorizontal className="size-4" /></Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
+                          <DropdownMenuContent align="end" className="w-auto space-y-1">
                             <DropdownMenuItem onClick={() => setPermissionsOf(a)}>
                               <Shield className="size-4" /> Права и магазин
                             </DropdownMenuItem>
@@ -295,7 +295,7 @@ const CreateAdminDialog = ({ open, onClose }: { open: boolean; onClose: () => vo
               value={form.storeSlug || "__none"}
               onValueChange={(v) => setForm({ ...form, storeSlug: v === "__none" ? "" : (v as StoreSlug) })}
             >
-              <SelectTrigger><SelectValue placeholder="Без магазина" /></SelectTrigger>
+              <SelectTrigger className="w-full"><SelectValue placeholder="Без магазина" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__none">Глобально (без магазина)</SelectItem>
                 {STORES.map((s) => (
@@ -382,7 +382,7 @@ const PermissionsDialog = ({
           <div className="space-y-2">
             <Label>Магазин</Label>
             <Select value={storeSlug || "__none"} onValueChange={(v) => setStoreSlug(v === "__none" ? "" : (v as StoreSlug))}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__none">Глобально</SelectItem>
                 {STORES.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}

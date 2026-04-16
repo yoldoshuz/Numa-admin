@@ -1,6 +1,6 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { api, extractError } from "@/lib/axios";
 import { queryKeys } from "@/lib/query-client";
@@ -34,15 +34,38 @@ export const useProducts = (filters: ProductsFilters = {}) =>
     },
   });
 
-export const useProduct = (id: string | undefined) =>
-  useQuery({
+function findProductInCache(qc: QueryClient, id: string): Product | undefined {
+  const queries = qc.getQueriesData<ProductsList>({ queryKey: queryKeys.products.all });
+  for (const [, listData] of queries) {
+    if (listData?.products) {
+      const found = listData.products.find((p) => p.id === id);
+      if (found) return found;
+    }
+  }
+  return undefined;
+}
+
+export const useProduct = (id: string | undefined) => {
+  const qc = useQueryClient();
+  return useQuery({
     queryKey: queryKeys.products.detail(id ?? ""),
     enabled: !!id,
+    initialData: () => (id ? findProductInCache(qc, id) : undefined),
+    initialDataUpdatedAt: () => {
+      const queries = qc.getQueriesData<ProductsList>({ queryKey: queryKeys.products.all });
+      let latest = 0;
+      for (const [key] of queries) {
+        const state = qc.getQueryState(key);
+        if (state?.dataUpdatedAt && state.dataUpdatedAt > latest) latest = state.dataUpdatedAt;
+      }
+      return latest;
+    },
     queryFn: async () => {
       const { data } = await api.get<ApiSuccess<Product>>(`/products/cms/${id}`);
       return data.data;
     },
   });
+};
 
 export interface CreateProductPayload {
   name: LocalizedText;

@@ -266,7 +266,7 @@ export const ProductFormPage = ({ basePath, productId }: ProductFormPageProps) =
                     value={form.watch("status")}
                     onValueChange={(v) => form.setValue("status", v as FormValues["status"])}
                   >
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="draft">Черновик</SelectItem>
                       <SelectItem value="active">Активный</SelectItem>
@@ -305,7 +305,7 @@ export const ProductFormPage = ({ basePath, productId }: ProductFormPageProps) =
                     }}
                     disabled={admin?.role !== "super_admin"}
                   >
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {STORES.map((s) => (
                         <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
@@ -319,7 +319,7 @@ export const ProductFormPage = ({ basePath, productId }: ProductFormPageProps) =
                     value={form.watch("categoryId")}
                     onValueChange={(v) => form.setValue("categoryId", v)}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="w-full">
                       <SelectValue placeholder={categories.isLoading ? "Загрузка…" : "Выберите"} />
                     </SelectTrigger>
                     <SelectContent>

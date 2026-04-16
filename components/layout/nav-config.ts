@@ -23,20 +23,20 @@ export const adminNav: NavGroup[] = [
   {
     label: "Каталог",
     items: [
-      { label: "Продукты", href: "/admin/products", icon: Package },
-      { label: "Категории", href: "/admin/categories", icon: FolderTree },
+      { label: "Продукты", href: "/admin/products", icon: Package, permission: "products:read" },
+      { label: "Категории", href: "/admin/categories", icon: FolderTree, permission: "categories:read" },
     ],
   },
   {
     label: "Продажи",
     items: [
-      { label: "Заказы", href: "/admin/orders", icon: ShoppingCart },
+      { label: "Заказы", href: "/admin/orders", icon: ShoppingCart, permission: "orders:read" },
     ],
   },
   {
     label: "Контент",
     items: [
-      { label: "Блог", href: "/admin/blog", icon: Newspaper },
+      { label: "Блог", href: "/admin/blog", icon: Newspaper, permission: "blog:read" },
     ],
   },
   {

@@ -26,6 +26,7 @@ const RootLayout = ({ children }: Readonly<{ children: React.ReactNode }>) => {
     <html
       lang="ru"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <Providers>{children}</Providers>

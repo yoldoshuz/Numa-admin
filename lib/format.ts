@@ -1,4 +1,10 @@
-import type { LocalizedText } from "./types";
+import type { Admin, LocalizedText, StoreSlug } from "./types";
+
+type RawAdmin = Admin & { storeSlug?: StoreSlug | null };
+
+export function normalizeAdmin(raw: RawAdmin): Admin {
+  return { ...raw, store: (raw.storeSlug ?? raw.store) as StoreSlug | null };
+}
 
 export const formatPrice = (v: number): string =>
   new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 0 }).format(v) + " сум";
