@@ -54,18 +54,6 @@ export const LoginPage = () => {
       </div>
 
       <div className="w-full max-w-md">
-        <div className="mb-10 flex flex-col items-center gap-3 text-center">
-          <div className="flex size-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/20">
-            <Sparkles className="size-6" strokeWidth={2.5} />
-          </div>
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Numa Admin</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Панель администрирования · Nutrition · Kids · Halal
-            </p>
-          </div>
-        </div>
-
         <div className="rounded-2xl border bg-card p-6 shadow-sm sm:p-8">
           <div className="mb-6 space-y-1">
             <h2 className="text-lg font-semibold">Вход в систему</h2>
@@ -122,14 +110,10 @@ export const LoginPage = () => {
               Войти в систему
             </Button>
           </form>
+          <p className="mt-6 text-center text-xs text-muted-foreground">
+            Numa · Admin Panel · CRM · Только для авторизованных лиц
+          </p>
         </div>
-
-        <p className="mt-6 text-center text-xs text-muted-foreground">
-          © {new Date().getFullYear()} Numa · Все права защищены ·{" "}
-          <Link href="/" className="underline-offset-2 hover:text-foreground hover:underline">
-            numa.yoldosh.uz
-          </Link>
-        </p>
       </div>
     </div>
   );

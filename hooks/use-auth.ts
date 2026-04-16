@@ -7,7 +7,7 @@ import { api, extractError } from "@/lib/axios";
 import { queryKeys } from "@/lib/query-client";
 import { useAuthStore } from "@/lib/auth-store";
 import { normalizeAdmin } from "@/lib/format";
-import type { Admin, ApiSuccess, LoginResponse } from "@/lib/types";
+import type { Admin, ApiSuccess, LoginResponse, StoreSlug } from "@/lib/types";
 
 interface LoginPayload {
   email: string;
@@ -17,15 +17,20 @@ interface LoginPayload {
 export const useLogin = () => {
   const setAuth = useAuthStore((s) => s.setAuth);
   const router = useRouter();
+
   return useMutation({
     mutationFn: async (payload: LoginPayload) => {
       const { data } = await api.post<ApiSuccess<LoginResponse>>("/admin/login", payload);
       return data.data;
     },
     onSuccess: (data) => {
-      const admin = normalizeAdmin(data.admin as Admin & { storeSlug?: string | null });
+      const admin = normalizeAdmin(
+        data.admin as unknown as Admin & { storeSlug?: StoreSlug | null }
+      );
+
       setAuth(data.accessToken, admin, data.refreshToken);
       toast.success(`Добро пожаловать, ${admin.name}`);
+
       const target = data.admin.role === "super_admin" ? "/super-admin" : "/admin";
       router.push(target);
     },
@@ -36,12 +41,16 @@ export const useLogin = () => {
 export const useMe = () => {
   const token = useAuthStore((s) => s.token);
   const setAdmin = useAuthStore((s) => s.setAdmin);
+
   return useQuery({
     queryKey: queryKeys.auth.me,
     enabled: !!token,
     queryFn: async () => {
       const { data } = await api.get<ApiSuccess<Admin>>("/admin/me");
-      const admin = normalizeAdmin(data.data as Admin & { storeSlug?: string | null });
+      const admin = normalizeAdmin(
+        data.data as unknown as Admin & { storeSlug?: StoreSlug | null }
+      );
+
       setAdmin(admin);
       return admin;
     },
@@ -51,13 +60,17 @@ export const useMe = () => {
 export const useUpdateMe = () => {
   const qc = useQueryClient();
   const setAdmin = useAuthStore((s) => s.setAdmin);
+
   return useMutation({
     mutationFn: async (payload: { name?: string; email?: string }) => {
       const { data } = await api.patch<ApiSuccess<Admin>>("/admin/me", payload);
       return data.data;
     },
     onSuccess: (raw) => {
-      const admin = normalizeAdmin(raw as Admin & { storeSlug?: string | null });
+      const admin = normalizeAdmin(
+        raw as unknown as Admin & { storeSlug?: StoreSlug | null }
+      );
+
       setAdmin(admin);
       qc.invalidateQueries({ queryKey: queryKeys.auth.me });
       toast.success("Профиль обновлён");

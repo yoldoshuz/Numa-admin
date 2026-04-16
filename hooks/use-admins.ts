@@ -16,7 +16,12 @@ export const useAdmins = (filters: AdminFilters = {}) =>
     queryKey: queryKeys.admins.list(filters),
     queryFn: async () => {
       const { data } = await api.get<ApiSuccess<Admin[]>>("/admin", { params: filters });
-      return (data.data ?? []).map((a) => normalizeAdmin(a as Admin & { storeSlug?: string | null }));
+
+      return (data.data ?? []).map((a) =>
+        normalizeAdmin(
+          a as Admin & { storeSlug?: StoreSlug | null }
+        )
+      );
     },
   });
 
@@ -26,7 +31,9 @@ export const useAdmin = (id: string | undefined) =>
     enabled: !!id,
     queryFn: async () => {
       const { data } = await api.get<ApiSuccess<Admin>>(`/admin/${id}`);
-      return normalizeAdmin(data.data as Admin & { storeSlug?: string | null });
+      return normalizeAdmin(
+        data.data as unknown as Admin & { storeSlug?: StoreSlug | null }
+      );
     },
   });
 
