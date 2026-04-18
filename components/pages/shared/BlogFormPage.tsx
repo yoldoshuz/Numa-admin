@@ -190,13 +190,26 @@ export const BlogFormPage = ({ basePath, postId }: BlogFormPageProps) => {
               </div>
               <div className="space-y-2">
                 <Label>Магазин</Label>
-                <Select value={form.store || "__none"} onValueChange={(v) => setForm({ ...form, store: v === "__none" ? "" : (v as StoreSlug) })}>
+                <Select
+                  value={form.store || "__none"}
+                  onValueChange={(v) => setForm({ ...form, store: v === "__none" ? "" : (v as StoreSlug) })}
+                  disabled={admin?.role !== "super_admin"}
+                >
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="__none">Глобально</SelectItem>
-                    {STORES.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
+                    {admin?.role === "super_admin" && (
+                      <SelectItem value="__none">Глобально</SelectItem>
+                    )}
+                    {STORES.filter((s) => admin?.role === "super_admin" || s.value === admin?.store).map((s) => (
+                      <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
+                {admin?.role !== "super_admin" && (
+                  <p className="text-[11px] text-muted-foreground">
+                    Пост будет опубликован в магазине {admin?.store}
+                  </p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label>Теги</Label>

@@ -47,7 +47,7 @@ import {
 import { useAuthStore } from "@/lib/auth-store";
 import { formatPrice, getLocalized } from "@/lib/format";
 import type { Product, ProductStatus, StoreSlug } from "@/lib/types";
-import { STORES } from "@/lib/constants";
+import { MARKETPLACE_STORES } from "@/lib/constants";
 
 interface ProductsPageProps {
   basePath: string;
@@ -138,7 +138,7 @@ export const ProductsPage = ({ basePath, showStoreFilter = false }: ProductsPage
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Все магазины</SelectItem>
-                {STORES.map((s) => (
+                {MARKETPLACE_STORES.map((s) => (
                   <SelectItem key={s.value} value={s.value}>
                     {s.label}
                   </SelectItem>

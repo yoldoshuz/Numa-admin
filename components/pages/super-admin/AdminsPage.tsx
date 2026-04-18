@@ -58,7 +58,7 @@ import {
   useAdminPermissions,
 } from "@/hooks/use-admins";
 import { formatDate } from "@/lib/format";
-import { ALL_PERMISSIONS, STORES } from "@/lib/constants";
+import { ALL_PERMISSIONS, MARKETPLACE_STORES } from "@/lib/constants";
 import type { Admin, StoreSlug } from "@/lib/types";
 
 export const AdminsPage = () => {
@@ -94,7 +94,7 @@ export const AdminsPage = () => {
             <SelectTrigger className="w-48"><SelectValue placeholder="Фильтр по магазину" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Все магазины</SelectItem>
-              {STORES.map((s) => (
+              {MARKETPLACE_STORES.map((s) => (
                 <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
               ))}
             </SelectContent>
@@ -298,7 +298,7 @@ const CreateAdminDialog = ({ open, onClose }: { open: boolean; onClose: () => vo
               <SelectTrigger className="w-full"><SelectValue placeholder="Без магазина" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__none">Глобально (без магазина)</SelectItem>
-                {STORES.map((s) => (
+                {MARKETPLACE_STORES.map((s) => (
                   <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
                 ))}
               </SelectContent>
@@ -385,7 +385,7 @@ const PermissionsDialog = ({
               <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__none">Глобально</SelectItem>
-                {STORES.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
+                {MARKETPLACE_STORES.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>

@@ -1,4 +1,6 @@
-export type StoreSlug = "nutrition" | "kids" | "halal";
+export type StoreSlug = "nutrition" | "kids" | "halal" | "family";
+export type MarketplaceStoreSlug = "nutrition" | "kids" | "halal";
+export type StoreKind = "marketplace" | "informational";
 export type AdminRole = "super_admin" | "admin";
 
 export interface LocalizedText {

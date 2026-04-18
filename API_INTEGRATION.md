@@ -1,6 +1,6 @@
 # Numa API — Integration Reference
 
-Generated for the Numa multi-tenant БАД-marketplace backend (Express 5 + Sequelize 6 + Postgres + Redis). All endpoints live under `/api/v1/`. This document is the single source of truth for client integration.
+Generated for the Numa multi-tenant backend (Express 5 + Sequelize 6 + Postgres + Redis). Serves three БАД-marketplace storefronts (`nutrition`, `kids`, `halal`) plus one informational site (`family` — Numa Family, no commerce). All endpoints live under `/api/v1/`. This document is the single source of truth for client integration.
 
 ---
 
@@ -30,31 +30,41 @@ Generated for the Numa multi-tenant БАД-marketplace backend (Express 5 + Sequ
 - Health check: `GET /api/v1/health` (200 OK = alive).
 
 ### 0.2 Stores (multi-tenancy)
-One backend serves three storefronts (`StoreSlug` enum, `src/types.ts`):
+One backend serves four storefronts. The codebase distinguishes two classes:
 
-| slug        | brand          |
-|-------------|----------------|
-| `nutrition` | Numa Nutrition |
-| `kids`      | Numa Kids      |
-| `halal`     | Numa Halal     |
+| slug        | brand          | kind          | has products / cart / orders? |
+|-------------|----------------|---------------|-------------------------------|
+| `nutrition` | Numa Nutrition | marketplace   | yes                           |
+| `kids`      | Numa Kids      | marketplace   | yes                           |
+| `halal`     | Numa Halal     | marketplace   | yes                           |
+| `family`    | Numa Family    | informational | **no** (blog + site pages only) |
+
+Two TypeScript constants in `src/types.ts`:
+- `STORE_SLUGS` — all 4 slugs. Used by site/blog/admin schemas.
+- `MARKETPLACE_STORE_SLUGS` — 3 slugs, excludes `family`. Used by product/category/cart/order/payment.
+
+**`family` is super_admin-only.** Only `super_admin` may read or mutate family-scoped site pages, site settings, and blog posts. Any store-scoped admin attempting to access a family resource receives `403 Forbidden` ("Numa Family is managed by super admins only").
 
 Store is specified per-request in one of three ways depending on the endpoint:
-- **URL path**: `/api/v1/products/store/nutrition` (most public endpoints use `storeParam` middleware).
-- **URL path for CMS scoped endpoints**: `/api/v1/sites/cms/:store/...`.
-- **Query param `?store=nutrition`** or **body field `store`** for admin CMS list/create endpoints.
-- **`X-Store` HTTP header** — accepted by `storeContext` middleware but not currently required on any route (`storeParam` / query / body are used instead).
+- **URL path** for public + cart/order/site/blog-public endpoints (`storeParam` / `marketplaceStoreParam` middleware).
+- **Query param `?store=...`** or **body field `store`** for admin CMS list/create endpoints.
+- **`X-Store` HTTP header** — accepted by `storeContext` / `marketplaceStoreContext` middleware but not currently required on any route.
 
-Invalid store values → `400 Bad Request` with message `Invalid store "<value>". Valid values: nutrition, kids, halal`.
+Invalid store values:
+- Marketplace endpoints (`/cart/:store`, `/orders/:store/checkout`, `/products/*/:store`, `/categories/store/:store`, etc.) reject `family` with `400 Bad Request` — `"… Valid values: nutrition, kids, halal"`.
+- Site / blog endpoints accept all four; `400 Bad Request` only for values outside the enum.
 
 ### 0.3 Auth model
 Two identity types share one JWT shape. Token claims: `{ id, role, store, permissions }`.
 
-| Identity         | role           | store          | permissions         | Source                              |
-|------------------|----------------|----------------|---------------------|-------------------------------------|
-| Customer user    | `user`         | `null`         | `[]`                | phone+OTP (`/auth/*`)               |
-| Store admin      | `admin`        | `<StoreSlug>`  | `['products:read', …]` | email+password (`/admin/login`) |
-| Super admin      | `super_admin`  | `null` (global)| ignored             | email+password (`/admin/login`)     |
-| Guest            | — (no token)   | —              | —                   | cookie `cart_session_<store>`       |
+| Identity         | role           | store                                   | permissions         | Source                              |
+|------------------|----------------|-----------------------------------------|---------------------|-------------------------------------|
+| Customer user    | `user`         | `null`                                  | `[]`                | phone+OTP (`/auth/*`)               |
+| Store admin      | `admin`        | `nutrition` \| `kids` \| `halal`        | `['products:read', …]` | email+password (`/admin/login`) |
+| Super admin      | `super_admin`  | `null` (global) — **only role allowed to manage `family`** | ignored | email+password (`/admin/login`) |
+| Guest            | — (no token)   | —                                       | —                   | cookie `cart_session_<store>`       |
+
+A store-scoped admin with `store='family'` is rejected at the middleware layer on every CMS path — the token shape is technically expressible but the runtime denies access to every protected route.
 
 - Access token: `Authorization: Bearer <jwt>`. Lifetime: short (JWT config).
 - Refresh token: 7 days. Always stored in `httpOnly` cookie `refresh-token` (`SameSite=none; Secure` in prod). Also returned in body for native clients.
@@ -110,8 +120,9 @@ All responses use a uniform envelope.
 | `cart_session_nutrition`| Guest cart token for `nutrition` store (nanoid32). 7-day expiry.                |
 | `cart_session_kids`     | Guest cart token for `kids`.                                                    |
 | `cart_session_halal`    | Guest cart token for `halal`.                                                   |
+| *(no `cart_session_family`)* | Family store has no cart — no such cookie is ever set.                     |
 | `X-Cart-Token` (header) | Mirror of the guest cart token — set in every cart response; clients on non-browser stacks can echo it on subsequent requests instead of using cookies. |
-| `X-Store` (header)      | Optional store selector handled by `storeContext` middleware.                   |
+| `X-Store` (header)      | Optional store selector handled by `storeContext` / `marketplaceStoreContext` middleware. Marketplace routes (product/cart/order/category/payment) reject `family` with 400. |
 | `X-Request-ID`          | Echo / generation of request correlation ID (always set in responses).          |
 | `Authorization`         | `Bearer <access-jwt>`.                                                          |
 | `If-None-Match` / `ETag`| Site public endpoints use weak ETags and honor 304.                             |
@@ -144,13 +155,21 @@ On limit exceeded: `429` with `{ success: false, message: 'Too many …' }` plus
 9. Main router (`/api/v1`).
 10. `errorHandler` — converts `AppError` / Zod / unhandled into envelope.
 
-### 0.9 Store-access middleware helpers (`shared/middleware/auth.ts`)
+### 0.9 Store-access middleware helpers (`shared/middleware/auth.ts`, `shared/middleware/storeContext.ts`)
+
+**Auth / permission:**
 - `requireAuth` — 401 if no valid token.
 - `requireSuperAdmin` — role must be `super_admin`.
 - `requirePermission(perm)` — super_admin passes; admin must have `perm` in `permissions`.
-- `requireStoreAccess(getStore)` — if admin, requested store must equal `req.user.store`.
-- `enforceAdminStoreFilter(source='query', key='store')` — mutates `req.query.store` (or body) to admin's own store if role=admin; super_admin untouched.
-- `requireResourceStoreAccess(loader)` — fetches `{ store }` for `:id`, compares to admin's store.
+
+**Store scoping (CMS paths):**
+- `requireStoreAccess(getStore)` — if admin, requested store must equal `req.user.store`. **Any non-super_admin request whose target store is `family` → 403.**
+- `enforceAdminStoreFilter(source='query', key='store')` — mutates `req.query.store` (or body) to admin's own store if role=admin; super_admin untouched. If the admin's assigned store is `family`, request is rejected with 403 (defence-in-depth).
+- `requireResourceStoreAccess(loader)` — fetches `{ store }` for `:id`, compares to admin's store. Resources whose store is `family` are super_admin-only.
+
+**Public store resolver:**
+- `storeParam` / `storeContext` — validate `:store` path param / `X-Store` header against all 4 slugs (`STORE_SLUGS`). Used by site + blog public endpoints.
+- `marketplaceStoreParam` / `marketplaceStoreContext` — validate against marketplace slugs only (`MARKETPLACE_STORE_SLUGS`). Used by cart, product public, category public, order checkout. Sending `family` to these returns 400.
 
 ### 0.10 Payment amounts
 - **Click**: amounts are in **UZS whole units** (integer).
@@ -162,7 +181,7 @@ On limit exceeded: `429` with `{ success: false, message: 'Too many …' }` plus
 ## 1. Auth (User)
 
 Module: `src/auth`. Router prefix: `/api/v1/auth`.
-All endpoints serve customer users (phone+OTP). User accounts are global — one account for all three stores, tokens carry `role:'user'`, `store:null`.
+All endpoints serve customer users (phone+OTP). User accounts are global — one account spans all three marketplace stores (`family` has no customer auth), tokens carry `role:'user'`, `store:null`.
 
 ### `POST /auth/register`
 - **Описание:** Начать регистрацию или re-login: создаёт/находит пользователя по телефону и отправляет 4-значный OTP через Eskiz SMS.
@@ -264,7 +283,8 @@ Admin JWT carries `role: 'admin' | 'super_admin'`, `store`, `permissions[]`.
   ```json
   { "data": { "accessToken": "...", "refreshToken": "...",
               "admin": { "id":"...", "name":"...", "email":"...", "role":"admin|super_admin",
-                         "store":"nutrition|kids|halal|null", "permissions":["products:read",...] } } }
+                         "store":"nutrition|kids|halal|family|null",
+                         "permissions":["products:read",...] } } }
   ```
   Sets `refresh-token` cookie.
 - **Errors:** 401 invalid credentials (constant-time), 422, 429.
@@ -317,7 +337,7 @@ Admin JWT carries `role: 'admin' | 'super_admin'`, `store`, `permissions[]`.
   | `name`        | string                    | yes      | 2–100                           |
   | `email`       | string                    | yes      | email                           |
   | `password`    | string                    | yes      | ≥ 8                             |
-  | `storeSlug`   | StoreSlug \| null         | no       | required for role=admin         |
+  | `storeSlug`   | StoreSlug \| null         | no       | null = global (super_admin). Avoid assigning `family` to a regular admin — the CMS gate blocks all such requests at runtime. |
   | `permissions` | Permission[]              | no       | default `[]`                    |
 - **Response 201:** admin summary. Hashes via bcrypt rounds=12.
 - **Errors:** 409 email exists.
@@ -354,6 +374,7 @@ Admin JWT carries `role: 'admin' | 'super_admin'`, `store`, `permissions[]`.
 ## 3. Cart
 
 Module: `src/cart`. Router prefix: `/api/v1/cart`.
+**Marketplace-only** — `:store` must be `nutrition | kids | halal`. Requests with `family` return `400 Bad Request` (rejected by `marketplaceStoreParam` middleware).
 Store is always in the path: `/:store`. Cart resolution: `userId` wins if logged in and a user-cart exists for the store; otherwise guest `session_token` cookie / header. Stock and item limits: quantity `1..99` int.
 
 All cart responses include a `withAvailability` wrapper: each item has `isAvailable = product.status=='active' && !deletedAt && stock >= quantity`.
@@ -414,6 +435,7 @@ All cart responses include a `withAvailability` wrapper: each item has `isAvaila
 ## 4. Category
 
 Module: `src/category`. Router prefix: `/api/v1/categories`.
+**Marketplace-only.** `store` in every schema/DTO is one of `nutrition | kids | halal`. Public path param is validated by `marketplaceStoreParam`.
 
 ### `GET /categories/store/:store`
 - **Описание:** Публичное дерево активных категорий магазина.
@@ -461,6 +483,7 @@ Module: `src/category`. Router prefix: `/api/v1/categories`.
 ## 5. Product
 
 Module: `src/product`. Router prefix: `/api/v1/products`.
+**Marketplace-only.** All public path params (`/store/:store`, `/featured/:store`, `/search/:store`, `/:store/:slug`) are validated by `marketplaceStoreParam`. The CMS DTO `createProductDto` / `productQueryDto` use `MARKETPLACE_STORE_SLUGS` — attempting `store:'family'` on create returns 422.
 
 ### `GET /products/store/:store`
 - **Описание:** Публичный каталог (только `status=active`).
@@ -572,6 +595,7 @@ Module: `src/product`. Router prefix: `/api/v1/products`.
 ## 6. Order
 
 Module: `src/order`. Router prefix: `/api/v1/orders`.
+**Marketplace-only.** `/orders/:store/checkout` rejects `family` with 400 (`marketplaceStoreParam`). The CMS list filter and `/orders/my?store=` use `MARKETPLACE_STORE_SLUGS` as the Zod enum.
 
 ### Enums
 - `OrderStatus`: `new | processing | completed | cancelled` (terminals: completed, cancelled).
@@ -649,6 +673,7 @@ Module: `src/order`. Router prefix: `/api/v1/orders`.
 ## 7. Payment
 
 Module: `src/payment`. Router prefix: `/api/v1/payment`. Integrations: Click and Payme.
+**Marketplace-only.** `Payment.store` and the CMS list `?store=` filter accept only `nutrition | kids | halal`.
 
 ### 7.1 Click webhooks (called by Click)
 Always respond HTTP 200; errors expressed via JSON `error` field. Signature is MD5 — see `verifyClickSign`.
@@ -740,10 +765,12 @@ Prefix `/payment/cms/`.
 
 Module: `src/blog`. Router prefix: `/api/v1/blog`. CMS routes are registered **before** `/:store` to avoid `cms` being interpreted as a store.
 
+Supports all 4 stores (`nutrition | kids | halal | family`). Family-scoped posts are super_admin-only — regular admins get 403 at the CMS gate.
+
 ### Enums
 - `BlogPostStatus`: `draft | published | archived`.
-- `store` — nullable (null = global; only super_admin can own global posts).
-- `distributeTo: StoreSlug[]` — cross-post to additional stores (via `BlogPostDistribution`).
+- `store` — nullable `StoreSlug` (all 4 values + null). `null` = global (super_admin only; legacy). `'family'` = Numa Family post (super_admin only).
+- `distributeTo: StoreSlug[]` — cross-post to additional stores (via `BlogPostDistribution`). May include `family`.
 
 ### `GET /blog/cms`
 - **Auth:** `blog:read`.
@@ -792,13 +819,14 @@ Module: `src/blog`. Router prefix: `/api/v1/blog`. CMS routes are registered **b
 
 ### `POST /blog/cms/:id/products`
 - **Auth:** `blog:write` + resource-store.
+- Product attachments are marketplace-scoped. A `family` blog post cannot attach products — the product store must be `nutrition | kids | halal` and the post must be distributed to that same marketplace store.
 - **Body (`attachProductDto`):**
-  | field       | type       | required | rules                                    |
-  |-------------|------------|----------|------------------------------------------|
-  | `productId` | UUID       | yes      |                                          |
-  | `store`     | StoreSlug  | no       | required if post is multi-store distributed; defaults to post.store |
-  | `note`      | string \| null | no   | ≤ 500                                    |
-  | `sortOrder` | int ≥ 0    | no       |                                          |
+  | field       | type                          | required | rules                                    |
+  |-------------|-------------------------------|----------|------------------------------------------|
+  | `productId` | UUID                          | yes      |                                          |
+  | `store`     | MarketplaceStoreSlug          | no       | required if post is multi-store distributed; defaults to post.store (must be a marketplace store) |
+  | `note`      | string \| null                | no       | ≤ 500                                    |
+  | `sortOrder` | int ≥ 0                       | no       |                                          |
 
 ### `PATCH /blog/cms/:id/products/:productId`
 - **Body:** `{ note?: string<=500|null, sortOrder?: int≥0 }`.
@@ -807,12 +835,13 @@ Module: `src/blog`. Router prefix: `/api/v1/blog`. CMS routes are registered **b
 - Detaches.
 
 ### `GET /blog/:store`
-- **Описание:** Публичная лента published-постов. `:store` = `nutrition|kids|halal|global`.
+- **Описание:** Публичная лента published-постов. `:store` = `nutrition | kids | halal | family | global` (`global` = legacy posts with `store=null`).
 - **Query:** `limit?=20`, `offset?=0`.
 - **Response:** `BlogPost[]` (published only, respects `distributeTo`).
 
 ### `GET /blog/:store/:slug`
-- **Описание:** Детальная страница поста + attached products. Регистрирует view через Redis bucket (`recordView(postId, ip)`).
+- **Описание:** Детальная страница поста + attached products (family posts have no products). Регистрирует view через Redis bucket (`recordView(postId, ip)`).
+- **`:store`** = `nutrition | kids | halal | family | global`.
 - **Errors:** 404.
 
 ---
@@ -820,6 +849,8 @@ Module: `src/blog`. Router prefix: `/api/v1/blog`. CMS routes are registered **b
 ## 9. Site CMS
 
 Module: `src/site`. Router prefix: `/api/v1/sites`. `Page → Sections (1..n)` + per-store `Settings`. Public endpoints are Redis-cached and return ETag/304.
+
+Supports all 4 stores via `:store` path param (`nutrition | kids | halal | family`). `family` pages + settings are super_admin-only on every `/sites/cms/:store/*` route — the `requireStoreAccess(params.store)` gate returns 403 for any non-super admin requesting `:store=family`.
 
 ### Enums / types
 - `SectionType`: `hero | text_block | features | gallery | cta | faq | stats | team | reviews | custom`.
@@ -1122,7 +1153,8 @@ Attempt from another store's admin:
 
 ```
 1) POST /blog/cms  { title, content, slug, store:'kids', distributeTo:['nutrition'], tags:['vitamins'] }
-     ↳ service applies scoping: admin with store=kids may create; super_admin may set null.
+     ↳ service applies scoping: admin with store=kids may create; super_admin may set null or 'family'.
+     ↳ distributeTo may include 'family' only when super_admin issues the request.
      ↳ 201 { post: { id, status:'draft' } }
 
 2) POST /blog/cms/:id/products  { productId, store:'kids', note:'best seller', sortOrder:0 }
@@ -1139,7 +1171,45 @@ Attempt from another store's admin:
                                → viewCounter.recordView(postId, ip) in Redis
 ```
 
-### A.10 Site CMS page lifecycle (cache invalidation)
+### A.10 Numa Family (informational site) — super_admin workflow
+
+```
+`family` has no marketplace surface. A super_admin manages it exclusively
+via site CMS + blog CMS. Non-super admins never reach these paths.
+
+1) super_admin POST /admin/login  → token (role='super_admin', store=null).
+
+2) PATCH /sites/cms/family/settings
+   Body: { branding:{ siteName:{ru:'Numa Family', uz:'Numa Family', en:'Numa Family'},
+                      logoUrl:'/public/sites/family-logo.png' },
+           navigation:[{ id:<uuid>, label:{ru:'О проекте',...}, url:'/about',
+                          target:'_self', sortOrder:0, isVisible:true }],
+           footer:{ copyright:{ru:'© Numa Family', ...} } }
+   ↳ requireStoreAccess('family') — passes (super_admin).
+   ↳ 200 settings cache invalidated for store='family'.
+
+3) POST /sites/cms/family/pages  Body:{ slug:'about', metaTitle:{ru:'О нас'} }
+   POST /sites/cms/family/pages/:pageId/about/sections  Body:{ type:'hero', content:{...}, sortOrder:0 }
+   PATCH /sites/cms/family/pages/:id/publish  { publish:true }
+
+4) POST /blog/cms  Body:{ title, content, slug, store:'family', distributeTo:[] }
+   ↳ non-super admin would be 403 here (family is super_admin-only).
+   POST /blog/cms/:id/publish
+
+5) Public reads (no auth):
+   GET /sites/family/settings          → published settings (ETag-cached)
+   GET /sites/family/about/config      → unified page config
+   GET /blog/family                    → family-only feed
+   GET /blog/family/:slug              → family post (no product attachments expected)
+
+6) Cross-contamination attempts (all rejected):
+   POST /cart/family/items             → 400 "Valid values: nutrition, kids, halal"
+   POST /orders/family/checkout        → 400
+   POST /products/cms  { store:'family' } → 422 (Zod)
+   admin with store=nutrition PATCH /sites/cms/family/pages/:id → 403
+```
+
+### A.11 Site CMS page lifecycle (cache invalidation)
 
 ```
 1) GET /sites/cms/nutrition/settings → current SiteSettings.
@@ -1193,6 +1263,14 @@ Source: `src/admin/dto/permissionDto.ts` → enum `Permission`. `super_admin` by
 `super_admin` exclusive endpoints (not gated by permissions but by `requireSuperAdmin`):
 - `GET/POST /admin/`, `GET /admin/permissions`, `GET/PATCH /admin/:id`, `PATCH /admin/:id/permissions`, `PATCH /admin/:id/password`, `POST /admin/:id/activate|deactivate`, `DELETE /admin/:id`.
 - `POST /blog/cms/:id/restore`.
+
+**Implicit super_admin-only surface — Numa Family (`store='family'`):**
+Every CMS mutation targeting a `family` resource is denied for non-super admins by the store-access middleware:
+- Site CMS: all `/sites/cms/family/*` (pages, sections, settings, upload) → 403 for any admin, even with `site:manage`.
+- Blog CMS: `GET/PATCH/DELETE /blog/cms/:id` for a post with `store='family'` → 403 via `requireResourceStoreAccess`.
+- Blog CMS list `GET /blog/cms?store=family` → 403 via `requireStoreAccess`.
+- `POST /blog/cms` with `store:'family'` in body → 403 via `requireStoreAccess(body.store)`.
+Public GETs under `/blog/family` and `/sites/family/*` remain open (no auth).
 
 ---
 

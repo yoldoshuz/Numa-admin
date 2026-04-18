@@ -43,8 +43,8 @@ import {
 } from "@/hooks/use-products";
 import { useCategoriesByStore } from "@/hooks/use-categories";
 import { useAuthStore } from "@/lib/auth-store";
-import { STORES } from "@/lib/constants";
-import type { StoreSlug } from "@/lib/types";
+import { MARKETPLACE_STORES } from "@/lib/constants";
+import type { MarketplaceStoreSlug } from "@/lib/types";
 
 const schema = z.object({
   nameRu: z.string().min(2, "Обязательно"),
@@ -81,8 +81,10 @@ export const ProductFormPage = ({ basePath, productId }: ProductFormPageProps) =
   const create = useCreateProduct();
   const update = useUpdateProduct();
 
-  const defaultStore: StoreSlug =
-    (admin?.role !== "super_admin" && admin?.store) || "nutrition";
+  const defaultStore: MarketplaceStoreSlug =
+    admin?.role !== "super_admin" && admin?.store && admin.store !== "family"
+      ? (admin.store as MarketplaceStoreSlug)
+      : "nutrition";
 
   const form = useForm<FormValues>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -125,7 +127,7 @@ export const ProductFormPage = ({ basePath, productId }: ProductFormPageProps) =
         discountPrice: product.discountPrice,
         stock: product.stock,
         unit: product.unit,
-        store: product.store,
+        store: product.store as MarketplaceStoreSlug,
         categoryId: product.categoryId,
         status: product.status,
         isFeatured: product.isFeatured,
@@ -300,14 +302,14 @@ export const ProductFormPage = ({ basePath, productId }: ProductFormPageProps) =
                   <Select
                     value={form.watch("store")}
                     onValueChange={(v) => {
-                      form.setValue("store", v as StoreSlug);
+                      form.setValue("store", v as MarketplaceStoreSlug);
                       form.setValue("categoryId", "");
                     }}
                     disabled={admin?.role !== "super_admin"}
                   >
                     <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {STORES.map((s) => (
+                      {MARKETPLACE_STORES.map((s) => (
                         <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
                       ))}
                     </SelectContent>

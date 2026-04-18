@@ -5,7 +5,9 @@
       "Bash(npx shadcn@latest add input label card dialog alert-dialog form table select textarea badge avatar dropdown-menu skeleton tabs sheet separator switch checkbox tooltip scroll-area sonner pagination popover command breadcrumb empty spinner --yes)",
       "Bash(npx tsc:*)",
       "Bash(npx next:*)",
-      "Bash(ls -la /d/numa-admin/*.md)"
+      "Bash(ls -la /d/numa-admin/*.md)",
+      "Bash(echo \"EXIT=$?\")",
+      "Bash(npx eslint:*)"
     ]
   }
 }

@@ -26,7 +26,7 @@ import { useUsers } from "@/hooks/use-users";
 import { usePayments } from "@/hooks/use-payments";
 import { useAuthStore } from "@/lib/auth-store";
 import { formatDate, formatPrice } from "@/lib/format";
-import { STORES } from "@/lib/constants";
+import { MARKETPLACE_STORES } from "@/lib/constants";
 
 export const SuperDashboard = () => {
   const admin = useAuthStore((s) => s.admin);
@@ -36,7 +36,7 @@ export const SuperDashboard = () => {
   const users = useUsers({ limit: 1 });
   const paidPayments = usePayments({ status: "paid", limit: 1 });
 
-  const storeStats = STORES.map((s) => ({
+  const storeStats = MARKETPLACE_STORES.map((s) => ({
     store: s.value,
     label: s.label,
     color: s.color,

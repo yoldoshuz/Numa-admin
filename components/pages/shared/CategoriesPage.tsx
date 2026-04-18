@@ -42,7 +42,7 @@ import {
   useDeleteCategory,
 } from "@/hooks/use-categories";
 import { useAuthStore } from "@/lib/auth-store";
-import { STORES } from "@/lib/constants";
+import { MARKETPLACE_STORES } from "@/lib/constants";
 import type { Category, StoreSlug } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -76,7 +76,7 @@ export const CategoriesPage = ({ showStoreSelector = false }: CategoriesPageProp
               <Select value={selectedStore} onValueChange={(v) => setSelectedStore(v as StoreSlug)}>
                 <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {STORES.map((s) => (
+                  {MARKETPLACE_STORES.map((s) => (
                     <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
                   ))}
                 </SelectContent>

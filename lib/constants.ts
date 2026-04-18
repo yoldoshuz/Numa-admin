@@ -1,4 +1,4 @@
-import type { StoreSlug } from "./types";
+import type { MarketplaceStoreSlug, StoreKind, StoreSlug } from "./types";
 
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || "https://numa.yoldosh.uz/api/v1";
@@ -6,16 +6,31 @@ export const API_BASE_URL =
 export const TOKEN_KEY = "numa_admin_token";
 export const REFRESH_KEY = "numa_admin_refresh";
 
-export const STORES: { value: StoreSlug; label: string; color: string }[] = [
-  { value: "nutrition", label: "Nutrition", color: "bg-teal-500/10 text-teal-700 dark:text-teal-300" },
-  { value: "kids", label: "Kids", color: "bg-amber-500/10 text-amber-700 dark:text-amber-300" },
-  { value: "halal", label: "Halal", color: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300" },
+export const STORES: {
+  value: StoreSlug;
+  label: string;
+  color: string;
+  kind: StoreKind;
+}[] = [
+  { value: "nutrition", label: "Nutrition", color: "bg-teal-500/10 text-teal-700 dark:text-teal-300", kind: "marketplace" },
+  { value: "kids", label: "Kids", color: "bg-amber-500/10 text-amber-700 dark:text-amber-300", kind: "marketplace" },
+  { value: "halal", label: "Halal", color: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300", kind: "marketplace" },
+  { value: "family", label: "Family", color: "bg-rose-500/10 text-rose-700 dark:text-rose-300", kind: "informational" },
 ];
+
+export const MARKETPLACE_STORES = STORES.filter((s) => s.kind === "marketplace") as {
+  value: MarketplaceStoreSlug;
+  label: string;
+  color: string;
+  kind: StoreKind;
+}[];
+export const INFORMATIONAL_STORES = STORES.filter((s) => s.kind === "informational");
 
 export const STORE_LABEL: Record<StoreSlug, string> = {
   nutrition: "Nutrition",
   kids: "Kids",
   halal: "Halal",
+  family: "Family",
 };
 
 export const ORDER_STATUS_LABEL = {

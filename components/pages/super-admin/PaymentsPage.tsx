@@ -43,7 +43,7 @@ import {
   type PaymentFilters,
 } from "@/hooks/use-payments";
 import { formatDate, formatTiyin } from "@/lib/format";
-import { STORES } from "@/lib/constants";
+import { MARKETPLACE_STORES } from "@/lib/constants";
 import type { PaymentProvider, PaymentTransaction, StoreSlug } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -94,7 +94,7 @@ export const PaymentsPage = () => {
             <SelectTrigger className="w-40"><SelectValue placeholder="Магазин" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Все магазины</SelectItem>
-              {STORES.map((s) => (<SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>))}
+              {MARKETPLACE_STORES.map((s) => (<SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>))}
             </SelectContent>
           </Select>
           <Select value={provider} onValueChange={(v) => { setProvider(v as PaymentProvider | "all"); setPage(1); }}>

@@ -29,7 +29,7 @@ import { StoreBadge } from "@/components/shared/StoreBadge";
 import { DataPagination } from "@/components/shared/DataPagination";
 import { useOrders, type OrdersFilters } from "@/hooks/use-orders";
 import { formatDate, formatPrice } from "@/lib/format";
-import { STORES } from "@/lib/constants";
+import { MARKETPLACE_STORES } from "@/lib/constants";
 import type { OrderStatus, PaymentStatus, StoreSlug } from "@/lib/types";
 
 interface OrdersPageProps {
@@ -107,7 +107,7 @@ export const OrdersPage = ({ basePath, showStoreFilter = false }: OrdersPageProp
               <SelectTrigger className="w-40"><SelectValue placeholder="Магазин" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Все магазины</SelectItem>
-                {STORES.map((s) => (
+                {MARKETPLACE_STORES.map((s) => (
                   <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
                 ))}
               </SelectContent>
