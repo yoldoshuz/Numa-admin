@@ -182,6 +182,67 @@ export const useAddProductMedia = () => {
   });
 };
 
+export const useUploadProductMedia = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      files,
+      isMain,
+      sortOrder,
+    }: {
+      id: string;
+      files: File[];
+      isMain?: boolean;
+      sortOrder?: number;
+    }) => {
+      const fd = new FormData();
+      for (const file of files) fd.append("media", file);
+      if (isMain !== undefined) fd.append("isMain", String(isMain));
+      if (sortOrder !== undefined) fd.append("sortOrder", String(sortOrder));
+      const { data } = await api.post<ApiSuccess<ProductMedia[] | ProductMedia>>(
+        `/products/cms/${id}/media`,
+        fd,
+        { headers: { "Content-Type": "multipart/form-data" } }
+      );
+      return Array.isArray(data.data) ? data.data : [data.data];
+    },
+    onSuccess: (_, { id }) => {
+      qc.invalidateQueries({ queryKey: queryKeys.products.detail(id) });
+      toast.success("Файлы загружены");
+    },
+    onError: (e) => toast.error(extractError(e)),
+  });
+};
+
+export const useUpdateProductMedia = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      mediaId,
+      ...payload
+    }: {
+      id: string;
+      mediaId: string;
+      sortOrder?: number;
+      type?: "image" | "video";
+      isMain?: boolean;
+    }) => {
+      const { data } = await api.patch<ApiSuccess<ProductMedia>>(
+        `/products/cms/${id}/media/${mediaId}`,
+        payload
+      );
+      return data.data;
+    },
+    onSuccess: (_, { id }) => {
+      qc.invalidateQueries({ queryKey: queryKeys.products.detail(id) });
+      toast.success("Медиа обновлено");
+    },
+    onError: (e) => toast.error(extractError(e)),
+  });
+};
+
 export const useDeleteProductMedia = () => {
   const qc = useQueryClient();
   return useMutation({

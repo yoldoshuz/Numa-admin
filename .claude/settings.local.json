@@ -7,7 +7,9 @@
       "Bash(npx next:*)",
       "Bash(ls -la /d/numa-admin/*.md)",
       "Bash(echo \"EXIT=$?\")",
-      "Bash(npx eslint:*)"
+      "Bash(npx eslint:*)",
+      "Bash(git -C D:/numa-admin log --oneline -10)",
+      "Bash(git -C D:/numa-admin log --stat -1)"
     ]
   }
 }

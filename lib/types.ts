@@ -165,8 +165,7 @@ export interface BlogPost {
   excerpt: LocalizedText | null;
   slug: string;
   coverImageUrl: string | null;
-  store: StoreSlug | null;
-  distributeTo: string[];
+  store: StoreSlug;
   status: "draft" | "published" | "archived";
   publishedAt: string | null;
   tags: string[];
@@ -186,6 +185,7 @@ export interface BlogPostDetail extends BlogPost {
 export interface BlogProductCard {
   blogPostId: string;
   productId: string;
+  store: MarketplaceStoreSlug;
   note: string | null;
   sortOrder: number;
   product: {
@@ -196,6 +196,141 @@ export interface BlogProductCard {
     store: string;
   };
 }
+
+// ─────────────────────────────────────────────────────────────
+// Site CMS
+// ─────────────────────────────────────────────────────────────
+
+export type SectionType =
+  | "hero"
+  | "text_block"
+  | "features"
+  | "gallery"
+  | "cta"
+  | "faq"
+  | "stats"
+  | "team"
+  | "reviews"
+  | "custom";
+
+export interface SectionStyle {
+  backgroundColor?: string;
+  textColor?: string;
+  paddingTop?: number;
+  paddingBottom?: number;
+  maxWidth?: string;
+}
+
+export interface SiteSection {
+  id: string;
+  pageId: string;
+  type: SectionType;
+  sortOrder: number;
+  content: Record<string, unknown>;
+  style?: SectionStyle | null;
+  isVisible: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface SitePage {
+  id: string;
+  store: StoreSlug;
+  slug: string;
+  metaTitle?: Record<string, string> | null;
+  metaDescription?: Record<string, string> | null;
+  ogImage?: string | null;
+  ogType?: string | null;
+  canonicalUrl?: string | null;
+  structuredData?: Record<string, unknown> | null;
+  isPublished: boolean;
+  publishedAt: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface SitePageWithSections extends SitePage {
+  sections: SiteSection[];
+}
+
+export interface SiteBranding {
+  logoUrl?: string;
+  faviconUrl?: string;
+  siteName?: LocalizedText;
+}
+
+export interface SiteColorPalette {
+  primary?: string;
+  secondary?: string;
+  accent?: string;
+  background?: string;
+  text?: string;
+}
+
+export interface SiteTypography {
+  headingFont?: string;
+  bodyFont?: string;
+  baseFontSize?: number;
+}
+
+export interface SiteContact {
+  phone?: string;
+  email?: string;
+  address?: LocalizedText;
+  workingHours?: string;
+}
+
+export interface SiteSocialLink {
+  platform: string;
+  url: string;
+  icon?: string;
+}
+
+export interface SiteNavChild {
+  id: string;
+  label: LocalizedText;
+  url: string;
+  target: "_self" | "_blank";
+  sortOrder: number;
+  isVisible: boolean;
+}
+
+export interface SiteNavItem extends SiteNavChild {
+  children?: SiteNavChild[];
+}
+
+export interface SiteFooterLink {
+  label: LocalizedText;
+  url: string;
+  target?: "_self" | "_blank";
+}
+
+export interface SiteFooterColumn {
+  title: LocalizedText;
+  links: SiteFooterLink[];
+}
+
+export interface SiteFooter {
+  columns?: SiteFooterColumn[];
+  copyright?: LocalizedText;
+}
+
+export interface SiteSettings {
+  id: string;
+  store: StoreSlug;
+  branding?: SiteBranding;
+  colors?: SiteColorPalette;
+  typography?: SiteTypography;
+  contact?: SiteContact;
+  socialLinks?: SiteSocialLink[];
+  navigation?: SiteNavItem[];
+  footer?: SiteFooter;
+  customHeadCode?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export type SiteSettingsUpdate = Partial<Omit<SiteSettings, "id" | "store" | "createdAt" | "updatedAt">>;
 
 export interface User {
   id: string;

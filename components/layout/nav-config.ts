@@ -10,6 +10,7 @@ import {
   UserCog,
   Newspaper,
   UserCircle,
+  Globe,
 } from "lucide-react";
 import type { NavGroup } from "./Sidebar";
 
@@ -37,6 +38,7 @@ export const adminNav: NavGroup[] = [
     label: "Контент",
     items: [
       { label: "Блог", href: "/admin/blog", icon: Newspaper, permission: "blog:read" },
+      { label: "Сайт", href: "/admin/site", icon: Globe, permission: "site:manage" },
     ],
   },
   {
@@ -79,6 +81,7 @@ export const superAdminNav: NavGroup[] = [
     label: "Контент",
     items: [
       { label: "Блог", href: "/super-admin/blog", icon: Newspaper },
+      { label: "Сайт", href: "/super-admin/site", icon: Globe },
     ],
   },
   {

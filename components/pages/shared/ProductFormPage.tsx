@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
@@ -13,6 +13,7 @@ import {
   Save,
   Star,
   Trash2,
+  Upload,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,6 +39,7 @@ import {
   useCreateProduct,
   useUpdateProduct,
   useAddProductMedia,
+  useUploadProductMedia,
   useDeleteProductMedia,
   useSetMainMedia,
 } from "@/hooks/use-products";
@@ -378,7 +380,9 @@ const MediaPanel = ({
 }) => {
   const [url, setUrl] = useState("");
   const [toDelete, setToDelete] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const add = useAddProductMedia();
+  const upload = useUploadProductMedia();
   const del = useDeleteProductMedia();
   const setMain = useSetMainMedia();
 
@@ -388,9 +392,38 @@ const MediaPanel = ({
         <CardTitle className="text-base">Медиа</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        <input
+          ref={inputRef}
+          type="file"
+          hidden
+          multiple
+          accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm"
+          onChange={(e) => {
+            const files = Array.from(e.target.files ?? []);
+            if (files.length) {
+              upload.mutate({
+                id: productId,
+                files,
+                isMain: media.length === 0,
+                sortOrder: media.length,
+              });
+            }
+            e.target.value = "";
+          }}
+        />
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full"
+          onClick={() => inputRef.current?.click()}
+          disabled={upload.isPending}
+        >
+          {upload.isPending ? <Spinner className="size-4" /> : <Upload className="size-4" />}
+          Загрузить файлы
+        </Button>
         <div className="flex gap-2">
           <Input
-            placeholder="https://cdn.numa.uz/products/image.webp"
+            placeholder="или URL: https://cdn.numa.uz/products/image.webp"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
           />

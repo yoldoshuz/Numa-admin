@@ -46,13 +46,12 @@ export interface CreateBlogPayload {
   excerpt?: LocalizedText;
   slug?: string;
   coverImageUrl?: string | null;
-  store?: StoreSlug | null;
-  distributeTo?: StoreSlug[];
+  store: StoreSlug;
   seoTitle?: LocalizedText;
   seoDescription?: LocalizedText;
   seoKeywords?: string[];
   tags?: string[];
-  readTimeMinutes?: number;
+  readTimeMinutes?: number | null;
 }
 
 export const useCreateBlogPost = () => {
@@ -73,7 +72,7 @@ export const useCreateBlogPost = () => {
 export const useUpdateBlogPost = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, ...payload }: { id: string } & Partial<CreateBlogPayload>) => {
+    mutationFn: async ({ id, ...payload }: { id: string } & Partial<Omit<CreateBlogPayload, "store">>) => {
       const { data } = await api.patch<ApiSuccess<BlogPost>>(`/blog/cms/${id}`, payload);
       return data.data;
     },
@@ -130,6 +129,26 @@ export const useArchiveBlogPost = () => {
   });
 };
 
+export const useUploadBlogCover = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, file }: { id: string; file: File }) => {
+      const fd = new FormData();
+      fd.append("image", file);
+      const { data } = await api.post<ApiSuccess<BlogPost>>(`/blog/cms/${id}/cover`, fd, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      return data.data;
+    },
+    onSuccess: (_, { id }) => {
+      qc.invalidateQueries({ queryKey: queryKeys.blog.all });
+      qc.invalidateQueries({ queryKey: queryKeys.blog.detail(id) });
+      toast.success("Обложка загружена");
+    },
+    onError: (e) => toast.error(extractError(e)),
+  });
+};
+
 export const useBlogPostProducts = (id: string | undefined) =>
   useQuery({
     queryKey: queryKeys.blog.products(id ?? ""),
@@ -139,3 +158,71 @@ export const useBlogPostProducts = (id: string | undefined) =>
       return data.data;
     },
   });
+
+export interface AttachBlogProductPayload {
+  productId: string;
+  note?: string | null;
+  sortOrder?: number;
+}
+
+export const useAttachBlogProduct = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...payload }: { id: string } & AttachBlogProductPayload) => {
+      const { data } = await api.post<ApiSuccess<BlogProductCard>>(
+        `/blog/cms/${id}/products`,
+        payload
+      );
+      return data.data;
+    },
+    onSuccess: (_, { id }) => {
+      qc.invalidateQueries({ queryKey: queryKeys.blog.products(id) });
+      qc.invalidateQueries({ queryKey: queryKeys.blog.detail(id) });
+      toast.success("Продукт привязан");
+    },
+    onError: (e) => toast.error(extractError(e)),
+  });
+};
+
+export const useUpdateBlogProduct = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      productId,
+      ...payload
+    }: {
+      id: string;
+      productId: string;
+      note?: string | null;
+      sortOrder?: number;
+    }) => {
+      const { data } = await api.patch<ApiSuccess<BlogProductCard>>(
+        `/blog/cms/${id}/products/${productId}`,
+        payload
+      );
+      return data.data;
+    },
+    onSuccess: (_, { id }) => {
+      qc.invalidateQueries({ queryKey: queryKeys.blog.products(id) });
+      qc.invalidateQueries({ queryKey: queryKeys.blog.detail(id) });
+      toast.success("Привязка обновлена");
+    },
+    onError: (e) => toast.error(extractError(e)),
+  });
+};
+
+export const useDetachBlogProduct = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, productId }: { id: string; productId: string }) => {
+      await api.delete(`/blog/cms/${id}/products/${productId}`);
+    },
+    onSuccess: (_, { id }) => {
+      qc.invalidateQueries({ queryKey: queryKeys.blog.products(id) });
+      qc.invalidateQueries({ queryKey: queryKeys.blog.detail(id) });
+      toast.success("Продукт отвязан");
+    },
+    onError: (e) => toast.error(extractError(e)),
+  });
+};

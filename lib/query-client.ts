@@ -56,4 +56,11 @@ export const queryKeys = {
     detail: (id: string) => ["blog", "detail", id] as const,
     products: (postId: string) => ["blog", "products", postId] as const,
   },
+  sites: {
+    all: ["sites"] as const,
+    pages: (store: string) => ["sites", "pages", store] as const,
+    pageBySlug: (store: string, slug: string) => ["sites", "page", store, slug] as const,
+    sections: (store: string, pageId: string) => ["sites", "sections", store, pageId] as const,
+    settings: (store: string) => ["sites", "settings", store] as const,
+  },
 };
