@@ -4,9 +4,15 @@ export const createQueryClient = () =>
   new QueryClient({
     defaultOptions: {
       queries: {
-        staleTime: 30 * 1000,
-        gcTime: 5 * 60 * 1000,
+        // Admin data changes on human timescales; a minute of reuse removes
+        // most of the refetching that made navigating between pages feel slow.
+        staleTime: 60 * 1000,
+        gcTime: 10 * 60 * 1000,
         refetchOnWindowFocus: false,
+        refetchOnReconnect: true,
+        // Paging and filtering keep the previous page on screen instead of
+        // collapsing the table to a spinner on every keystroke.
+        placeholderData: (previous: unknown) => previous,
         retry: 1,
       },
       mutations: {

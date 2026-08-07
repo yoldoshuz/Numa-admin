@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 import { useLogin } from "@/hooks/use-auth";
+import { Loader } from "@/components/states/Loader";
 import { useAuthStore } from "@/lib/auth-store";
 
 const schema = z.object({
@@ -27,13 +28,25 @@ export const LoginPage = () => {
   const router = useRouter();
   const admin = useAuthStore((s) => s.admin);
   const token = useAuthStore((s) => s.token);
+  const hydrated = useAuthStore((s) => s.hydrated);
   const login = useLogin();
 
   useEffect(() => {
+    if (!hydrated) return;
     if (token && admin) {
       router.replace(admin.role === "super_admin" ? "/super-admin" : "/admin");
     }
-  }, [token, admin, router]);
+  }, [token, admin, hydrated, router]);
+
+  // Rendering the form over a session that is about to redirect is the flash
+  // the guard above exists to prevent.
+  if (!hydrated || (token && admin)) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <Loader label="Загрузка…" />
+      </div>
+    );
+  }
 
   const {
     register,
