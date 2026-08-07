@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 import { useLogin } from "@/hooks/use-auth";
 import { Loader } from "@/components/states/Loader";
+import { useAuthHydrated } from "@/hooks/use-hydrated";
 import { useAuthStore } from "@/lib/auth-store";
 
 const schema = z.object({
@@ -28,7 +29,7 @@ export const LoginPage = () => {
   const router = useRouter();
   const admin = useAuthStore((s) => s.admin);
   const token = useAuthStore((s) => s.token);
-  const hydrated = useAuthStore((s) => s.hydrated);
+  const hydrated = useAuthHydrated();
   const login = useLogin();
 
   useEffect(() => {

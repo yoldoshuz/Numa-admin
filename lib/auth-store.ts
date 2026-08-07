@@ -10,16 +10,6 @@ interface AuthState {
   admin: Admin | null;
   token: string | null;
   refreshToken: string | null;
-  /**
-   * `false` until the persisted session has been read back from localStorage.
-   *
-   * Every render before that sees `token: null`, which is indistinguishable
-   * from being logged out — so a route guard that acts on it immediately
-   * bounces the user to /login and then, once the store catches up, back to the
-   * dashboard root. That is the login flash on refresh, and the reason a reload
-   * never stayed on the page you were looking at.
-   */
-  hydrated: boolean;
   setAuth: (token: string, admin: Admin, refreshToken?: string) => void;
   setTokens: (token: string, refreshToken?: string) => void;
   setAdmin: (admin: Admin) => void;
@@ -34,7 +24,6 @@ export const useAuthStore = create<AuthState>()(
       admin: null,
       token: null,
       refreshToken: null,
-      hydrated: false,
       setAuth: (token, admin, refreshToken) => {
         Cookies.set(TOKEN_KEY, token, { expires: 7, sameSite: "lax" });
         if (refreshToken) {
@@ -71,12 +60,14 @@ export const useAuthStore = create<AuthState>()(
         token: state.token,
         refreshToken: state.refreshToken,
       }),
-      // Runs after rehydration, including the failure path — a corrupt payload
-      // must still release the guards rather than hang them on a loader.
+      /*
+       * localStorage is synchronous, so this runs inside `create()` — touching
+       * `useAuthStore` here would hit the temporal dead zone and throw, leaving
+       * the app stuck on its loader. Only the rehydrated state is used.
+       */
       onRehydrateStorage: () => (state) => {
-        useAuthStore.setState({ hydrated: true });
-        // A session written before this flag existed has no cookie for axios to
-        // send, so restore it from the persisted token.
+        // A session persisted before the cookie was written has no credential
+        // for axios to send; restore it from the stored token.
         if (state?.token) {
           Cookies.set(TOKEN_KEY, state.token, { expires: 7, sameSite: "lax" });
         }

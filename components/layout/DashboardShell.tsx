@@ -4,6 +4,7 @@ import { useEffect, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/lib/auth-store";
 import { useMe } from "@/hooks/use-auth";
+import { useAuthHydrated } from "@/hooks/use-hydrated";
 import { Loader } from "@/components/states/Loader";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Sidebar, type NavGroup } from "./Sidebar";
@@ -25,7 +26,8 @@ export const DashboardShell = ({
   profileHref,
 }: DashboardShellProps) => {
   const router = useRouter();
-  const { admin, token, hydrated } = useAuthStore();
+  const { admin, token } = useAuthStore();
+  const hydrated = useAuthHydrated();
   useMe();
 
   const filteredGroups = groups
