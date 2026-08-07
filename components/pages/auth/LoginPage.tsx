@@ -39,6 +39,15 @@ export const LoginPage = () => {
     }
   }, [token, admin, hydrated, router]);
 
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<FormValues>({
+    resolver: zodResolver(schema),
+    defaultValues: { email: "", password: "" },
+  });
+
   // Rendering the form over a session that is about to redirect is the flash
   // the guard above exists to prevent.
   if (!hydrated || (token && admin)) {
@@ -48,15 +57,6 @@ export const LoginPage = () => {
       </div>
     );
   }
-
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<FormValues>({
-    resolver: zodResolver(schema),
-    defaultValues: { email: "", password: "" },
-  });
 
   const onSubmit = (values: FormValues) => login.mutate(values);
 
