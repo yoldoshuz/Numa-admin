@@ -341,3 +341,28 @@ export interface User {
   createdAt?: string;
   orders?: Order[];
 }
+
+// ─────────────────────────────────────────────────────────────
+// Consultations
+// ─────────────────────────────────────────────────────────────
+
+export type ConsultationStatus = "new" | "in_progress" | "done" | "rejected";
+
+export interface Consultation {
+  id: string;
+  store: StoreSlug;
+  /** Not null when the request came from a signed-in client. */
+  userId: string | null;
+  name: string;
+  phone: string;
+  problem: string;
+  status: ConsultationStatus;
+  managerComment: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Unlike orders and products, the list endpoint calls its page `items`. */
+export interface ConsultationsList extends PaginationMeta {
+  items: Consultation[];
+}

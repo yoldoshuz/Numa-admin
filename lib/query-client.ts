@@ -51,6 +51,10 @@ export const queryKeys = {
     list: (filters?: object) => ["users", "list", filters] as const,
     detail: (id: string) => ["users", "detail", id] as const,
   },
+  consultations: {
+    all: ["consultations"] as const,
+    list: (filters?: object) => ["consultations", "list", filters] as const,
+  },
   payments: {
     all: ["payments"] as const,
     list: (filters?: object) => ["payments", "list", filters] as const,

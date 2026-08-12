@@ -1,5 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import {
+  CONSULTATION_STATUS_COLOR,
+  CONSULTATION_STATUS_LABEL,
   ORDER_STATUS_COLOR,
   ORDER_STATUS_LABEL,
   PAYMENT_STATUS_COLOR,
@@ -7,7 +9,12 @@ import {
   PRODUCT_STATUS_COLOR,
   PRODUCT_STATUS_LABEL,
 } from "@/lib/constants";
-import type { OrderStatus, PaymentStatus, ProductStatus } from "@/lib/types";
+import type {
+  ConsultationStatus,
+  OrderStatus,
+  PaymentStatus,
+  ProductStatus,
+} from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 export const OrderStatusBadge = ({ status }: { status: OrderStatus }) => (
@@ -25,5 +32,11 @@ export const PaymentStatusBadge = ({ status }: { status: PaymentStatus }) => (
 export const ProductStatusBadge = ({ status }: { status: ProductStatus }) => (
   <Badge variant="outline" className={cn("font-normal", PRODUCT_STATUS_COLOR[status])}>
     {PRODUCT_STATUS_LABEL[status]}
+  </Badge>
+);
+
+export const ConsultationStatusBadge = ({ status }: { status: ConsultationStatus }) => (
+  <Badge variant="outline" className={cn("font-normal", CONSULTATION_STATUS_COLOR[status])}>
+    {CONSULTATION_STATUS_LABEL[status]}
   </Badge>
 );

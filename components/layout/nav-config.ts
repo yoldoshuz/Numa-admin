@@ -11,6 +11,7 @@ import {
   Newspaper,
   UserCircle,
   Globe,
+  MessageSquareText,
 } from "lucide-react";
 import type { NavGroup } from "./Sidebar";
 
@@ -32,6 +33,12 @@ export const adminNav: NavGroup[] = [
     label: "Продажи",
     items: [
       { label: "Заказы", href: "/admin/orders", icon: ShoppingCart, permission: "orders:read" },
+      {
+        label: "Консультации",
+        href: "/admin/consultations",
+        icon: MessageSquareText,
+        permission: "users:read",
+      },
     ],
   },
   {
@@ -75,6 +82,12 @@ export const superAdminNav: NavGroup[] = [
     items: [
       { label: "Заказы", href: "/super-admin/orders", icon: ShoppingCart },
       { label: "Платежи", href: "/super-admin/payments", icon: CreditCard },
+      {
+        label: "Консультации",
+        href: "/super-admin/consultations",
+        icon: MessageSquareText,
+        permission: "users:read",
+      },
     ],
   },
   {
