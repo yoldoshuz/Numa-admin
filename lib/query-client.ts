@@ -55,6 +55,11 @@ export const queryKeys = {
     all: ["consultations"] as const,
     list: (filters?: object) => ["consultations", "list", filters] as const,
   },
+  reviews: {
+    all: ["reviews"] as const,
+    list: (filters?: object) => ["reviews", "list", filters] as const,
+    detail: (id: string) => ["reviews", "detail", id] as const,
+  },
   payments: {
     all: ["payments"] as const,
     list: (filters?: object) => ["payments", "list", filters] as const,

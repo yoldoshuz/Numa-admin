@@ -366,3 +366,47 @@ export interface Consultation {
 export interface ConsultationsList extends PaginationMeta {
   items: Consultation[];
 }
+
+/* ── reviews ─────────────────────────────────────────────────────────────── */
+
+/**
+ * A customer review. CMS content: there is no public submission form and no
+ * moderation queue — an admin writes them and they publish immediately.
+ */
+export interface Review {
+  id: string;
+  store: StoreSlug;
+  title: LocalizedText;
+  description: LocalizedText;
+  authorName: string | null;
+  rating: number | null;
+  videoUrl: string | null;
+  sortOrder: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ReviewsList {
+  items: Review[];
+  total: number;
+  page: number;
+  limit: number;
+  pages: number;
+}
+
+/**
+ * Create payload. All three languages are required on both text fields — the
+ * API rejects a partial set rather than letting an English storefront render a
+ * blank card.
+ */
+export interface ReviewInput {
+  store: StoreSlug;
+  title: LocalizedText;
+  description: LocalizedText;
+  authorName?: string | null;
+  rating?: number | null;
+  videoUrl?: string | null;
+  sortOrder?: number;
+  isActive?: boolean;
+}
