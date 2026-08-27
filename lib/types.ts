@@ -355,7 +355,17 @@ export interface Consultation {
   userId: string | null;
   name: string;
   phone: string;
+  /** "Тема обращения" from the form — optional, so often absent. */
+  subject?: string | null;
   problem: string;
+  /**
+   * Resolved server-side from the request IP, never sent by the storefront.
+   * Best-effort: a VPN or an unreachable geo service leaves it null, and a
+   * mobile subscriber anywhere in the country resolves to Tashkent because the
+   * operators' pools are registered there. Treat it as a hint, not a fact.
+   */
+  city?: string | null;
+  country?: string | null;
   status: ConsultationStatus;
   managerComment: string | null;
   createdAt: string;

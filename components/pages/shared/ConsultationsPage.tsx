@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { MessageSquareText, Phone, Search, UserRound } from "lucide-react";
+import { MapPin, MessageSquareText, Phone, Search, UserRound } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -185,7 +185,7 @@ export const ConsultationsPage = ({ showStoreFilter = false }: ConsultationsPage
                     <TableHead>Клиент</TableHead>
                     <TableHead>Телефон</TableHead>
                     {showStoreFilter && <TableHead>Сайт</TableHead>}
-                    <TableHead>Проблема</TableHead>
+                    <TableHead>Обращение</TableHead>
                     <TableHead>Статус</TableHead>
                     <TableHead>Дата</TableHead>
                   </TableRow>
@@ -216,6 +216,14 @@ export const ConsultationsPage = ({ showStoreFilter = false }: ConsultationsPage
                           <Phone className="size-3" />
                           {c.phone}
                         </span>
+                        {/* Guessed from the IP, so it sits under the number as
+                            a hint rather than beside it as a fact. */}
+                        {c.city && (
+                          <span className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground/70">
+                            <MapPin className="size-3" />
+                            {c.city}
+                          </span>
+                        )}
                       </TableCell>
                       {showStoreFilter && (
                         <TableCell>
@@ -223,6 +231,9 @@ export const ConsultationsPage = ({ showStoreFilter = false }: ConsultationsPage
                         </TableCell>
                       )}
                       <TableCell className="max-w-sm">
+                        {c.subject && (
+                          <p className="truncate text-sm font-medium">{c.subject}</p>
+                        )}
                         <p className="truncate text-sm text-muted-foreground">{c.problem}</p>
                       </TableCell>
                       <TableCell>
@@ -308,11 +319,21 @@ const ConsultationDialog = ({
           </DialogTitle>
           <DialogDescription>
             {consultation.phone} · {formatDate(consultation.createdAt)}
+            {/* Determined from the IP — accurate on a wired connection, and
+                always "Ташкент" for a mobile subscriber wherever they are. */}
+            {consultation.city ? ` · ${consultation.city}` : ""}
             {consultation.userId ? " · зарегистрированный клиент" : ""}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
+          {consultation.subject && (
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Тема обращения</Label>
+              <p className="text-sm font-medium">{consultation.subject}</p>
+            </div>
+          )}
+
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">Описание проблемы</Label>
             <p className="max-h-56 overflow-y-auto rounded-md border border-border bg-muted/40 p-3 text-sm whitespace-pre-wrap">
