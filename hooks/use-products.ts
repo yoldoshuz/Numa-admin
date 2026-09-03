@@ -81,7 +81,7 @@ export interface CreateProductPayload {
   status?: ProductStatus;
   isFeatured?: boolean;
   brand?: string | null;
-  attributes?: Record<string, string | number | boolean> | null;
+  attributes?: Record<string, unknown> | null;
 }
 
 export const useCreateProduct = () => {
@@ -110,6 +110,34 @@ export const useUpdateProduct = () => {
       qc.invalidateQueries({ queryKey: queryKeys.products.all });
       qc.invalidateQueries({ queryKey: queryKeys.products.detail(id) });
       toast.success("Продукт обновлён");
+    },
+    onError: (e) => toast.error(extractError(e)),
+  });
+};
+
+/**
+ * Moves a product in the storefront grid.
+ *
+ * The shops sort their catalogue by `attributes.order`, which no screen could
+ * reach until now — the API answers in insertion order, so "put this jar
+ * first" was a code change. `attributes` is spread rather than replaced: it
+ * also holds the seeded structural data (accent, image sets, per-locale copy)
+ * that the storefronts read.
+ */
+export const useReorderProducts = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (moves: { product: Product; order: number }[]) => {
+      await Promise.all(
+        moves.map(({ product, order }) =>
+          api.patch(`/products/cms/${product.id}`, {
+            attributes: { ...(product.attributes ?? {}), order },
+          })
+        )
+      );
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.products.all });
     },
     onError: (e) => toast.error(extractError(e)),
   });

@@ -34,6 +34,7 @@ import { Loader } from "@/components/states/Loader";
 import { ErrorState } from "@/components/states/Error";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { ProductLandingEditor } from "@/components/pages/shared/product-landing/ProductLandingEditor";
 import {
   useProduct,
   useCreateProduct,
@@ -65,6 +66,12 @@ const schema = z.object({
   categoryId: z.string().uuid("Выберите категорию"),
   status: z.enum(["active", "draft", "archived"]),
   isFeatured: z.boolean(),
+  /**
+   * Where the product sits in the storefront grid. Lives in `attributes.order`
+   * — the shops sort by it, the API answers in its own insertion order, so
+   * without this field the merchandising sequence was unreachable from here.
+   */
+  sortOrder: z.coerce.number().int().min(0),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -108,6 +115,7 @@ export const ProductFormPage = ({ basePath, productId }: ProductFormPageProps) =
       categoryId: "",
       status: "draft",
       isFeatured: false,
+      sortOrder: 0,
     },
   });
 
@@ -133,6 +141,7 @@ export const ProductFormPage = ({ basePath, productId }: ProductFormPageProps) =
         categoryId: product.categoryId,
         status: product.status,
         isFeatured: product.isFeatured,
+        sortOrder: Number(product.attributes?.order ?? 0),
       });
     }
   }, [product, form]);
@@ -154,6 +163,12 @@ export const ProductFormPage = ({ basePath, productId }: ProductFormPageProps) =
       categoryId: values.categoryId,
       status: values.status,
       isFeatured: values.isFeatured,
+      /*
+       * Spread, not replaced: `attributes` also carries the seeded structural
+       * data the storefronts read (accent, image sets, per-locale copy), and
+       * sending `{ order }` alone would wipe all of it.
+       */
+      attributes: { ...(product?.attributes ?? {}), order: values.sortOrder },
     };
 
     if (isEdit && productId) {
@@ -176,21 +191,7 @@ export const ProductFormPage = ({ basePath, productId }: ProductFormPageProps) =
     ...(c.subcategories ?? []),
   ]);
 
-  return (
-    <div className="space-y-5">
-      <PageHeader
-        title={isEdit ? `Редактирование: ${product?.name.ru}` : "Новый продукт"}
-        description={isEdit ? "Изменение данных и медиа продукта" : "Создание нового продукта в каталоге"}
-        actions={
-          <Button variant="ghost" size="sm" asChild>
-            <Link href={`${basePath}/products`}>
-              <ArrowLeft className="size-4" />
-              Назад
-            </Link>
-          </Button>
-        }
-      />
-
+  const mainForm = (
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
         <div className="grid gap-5 lg:grid-cols-3">
           <div className="space-y-5 lg:col-span-2">
@@ -202,7 +203,7 @@ export const ProductFormPage = ({ basePath, productId }: ProductFormPageProps) =
                 <Tabs defaultValue="ru">
                   <TabsList>
                     <TabsTrigger value="ru">Русский</TabsTrigger>
-                    <TabsTrigger value="uz">O'zbekcha</TabsTrigger>
+                    <TabsTrigger value="uz">O&apos;zbekcha</TabsTrigger>
                     <TabsTrigger value="en">English</TabsTrigger>
                   </TabsList>
                   <TabsContent value="ru" className="space-y-4 pt-4">
@@ -251,6 +252,14 @@ export const ProductFormPage = ({ basePath, productId }: ProductFormPageProps) =
                   <Label htmlFor="slug">Slug</Label>
                   <Input id="slug" placeholder="omega-3-premium" {...form.register("slug")} />
                   {form.formState.errors.slug && <p className="text-xs text-destructive">{form.formState.errors.slug.message}</p>}
+                </div>
+                <div className="space-y-2 sm:col-span-2">
+                  <Label htmlFor="sortOrder">Порядок на сайте</Label>
+                  <Input id="sortOrder" type="number" min={0} {...form.register("sortOrder")} />
+                  <p className="text-xs text-muted-foreground">
+                    Чем меньше число, тем выше товар в каталоге витрины. Товары с
+                    одинаковым числом остаются в порядке, который вернул сервер.
+                  </p>
                 </div>
               </CardContent>
             </Card>
@@ -345,6 +354,50 @@ export const ProductFormPage = ({ basePath, productId }: ProductFormPageProps) =
           </div>
         </div>
       </form>
+  );
+
+  return (
+    <div className="space-y-5">
+      <PageHeader
+        title={isEdit ? `Редактирование: ${product?.name.ru}` : "Новый продукт"}
+        description={
+          isEdit
+            ? "Данные, медиа и содержимое страницы товара"
+            : "Создание нового продукта в каталоге"
+        }
+        actions={
+          <Button variant="ghost" size="sm" asChild>
+            <Link href={`${basePath}/products`}>
+              <ArrowLeft className="size-4" />
+              Назад
+            </Link>
+          </Button>
+        }
+      />
+
+      {isEdit && product ? (
+        /*
+         * Two tabs rather than one long page, and the landing editor lives
+         * outside the `<form>` above on purpose: its buttons are its own, and
+         * nested inside a form every one of them would have submitted the
+         * product. Leaving the tab unmounts the block form, which flushes its
+         * pending autosave.
+         */
+        <Tabs defaultValue="main">
+          <TabsList>
+            <TabsTrigger value="main">Товар</TabsTrigger>
+            <TabsTrigger value="landing">Страница товара</TabsTrigger>
+          </TabsList>
+          <TabsContent value="main" className="pt-5">
+            {mainForm}
+          </TabsContent>
+          <TabsContent value="landing" className="pt-5">
+            <ProductLandingEditor productId={product.id} />
+          </TabsContent>
+        </Tabs>
+      ) : (
+        mainForm
+      )}
     </div>
   );
 };

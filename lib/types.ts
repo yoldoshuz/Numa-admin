@@ -79,7 +79,8 @@ export interface Product {
   status: ProductStatus;
   isFeatured: boolean;
   brand: string | null;
-  attributes: Record<string, string | number | boolean> | null;
+  /** Free-form JSONB: `order` for the grid, plus seeded structural data the storefronts read. */
+  attributes: Record<string, unknown> | null;
   media: ProductMedia[];
   category?: Category;
   createdAt?: string;
@@ -419,4 +420,86 @@ export interface ReviewInput {
   videoUrl?: string | null;
   sortOrder?: number;
   isActive?: boolean;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Product landing blocks ("Лендинг" tab of a product card)
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * A product page is a list of blocks — one block per landing section. The
+ * storefront used to hardcode these sections, so the admin could only change a
+ * name, a description, a photo and the stock; everything a customer actually
+ * reads was in the frontend bundle. Now the whole page lives in the database
+ * and is edited here in three languages.
+ */
+export type ProductBlockType =
+  | "hero"
+  | "specs"
+  | "benefits"
+  | "how_to_use"
+  | "warnings"
+  | "about"
+  | "advantages"
+  | "metrics"
+  | "faq";
+
+/** Every text field inside `data` is a `{uz, ru, en}` map. */
+export type BlockData = Record<string, unknown>;
+
+export interface ProductBlock {
+  id: string;
+  productId: string;
+  type: ProductBlockType;
+  /** Order on the page, ascending. Changed through the reorder endpoint only. */
+  position: number;
+  /**
+   * Publication. A hidden block stays in the admin and is invisible to the
+   * storefront, which is the lever for "not translated yet" — an empty `uz`
+   * string is a hint, never an error.
+   */
+  isVisible: boolean;
+  data: BlockData;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export type BlockFieldKind = "text" | "number" | "icon" | "list";
+
+/**
+ * One field of a block form, as described by the backend. Forms are built from
+ * these rather than from structures hardcoded here, so a new block type on the
+ * backend shows up in the admin without a frontend release.
+ */
+export interface BlockField {
+  kind: BlockFieldKind;
+  name: string;
+  localized?: boolean;
+  required?: boolean;
+  /** `number` only. */
+  min?: number;
+  max?: number;
+  /** `list` only. */
+  maxItems?: number;
+  fields?: BlockField[];
+}
+
+export interface BlockTypeSchema {
+  type: ProductBlockType;
+  titleRu: string;
+  fields: BlockField[];
+}
+
+export interface BlockLimits {
+  maxBlocksPerProduct: number;
+  maxItemsPerBlock: number;
+  maxTextLength: number;
+}
+
+export interface BlockSchemas {
+  types: BlockTypeSchema[];
+  /** Icon keys the storefront can draw. Never hardcode this list. */
+  icons: string[];
+  limits: BlockLimits;
+  languages: string[];
 }

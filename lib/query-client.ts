@@ -35,6 +35,8 @@ export const queryKeys = {
     all: ["products"] as const,
     list: (filters?: object) => ["products", "list", filters] as const,
     detail: (id: string) => ["products", "detail", id] as const,
+    blocks: (id: string) => ["products", "blocks", id] as const,
+    blockSchemas: ["products", "block-schemas"] as const,
   },
   categories: {
     all: ["categories"] as const,

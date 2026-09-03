@@ -2,7 +2,17 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Package, Plus, Search, Trash2, Eye, EyeOff, Star } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  Eye,
+  EyeOff,
+  Package,
+  Plus,
+  Search,
+  Star,
+  Trash2,
+} from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,6 +51,7 @@ import { DataPagination } from "@/components/shared/DataPagination";
 import {
   useProducts,
   useDeleteProduct,
+  useReorderProducts,
   useUpdateProductStatus,
   type ProductsFilters,
 } from "@/hooks/use-products";
@@ -78,12 +89,47 @@ export const ProductsPage = ({ basePath, showStoreFilter = false }: ProductsPage
   const { data, isLoading, isError, error, refetch } = useProducts(filters);
   const deleteProduct = useDeleteProduct();
   const updateStatus = useUpdateProductStatus();
+  const reorder = useReorderProducts();
+
+  /*
+   * The table is ordered the way the storefront orders its grid, not the way
+   * the API happens to return rows — otherwise the arrows below would move a
+   * product relative to a neighbour it does not actually stand next to on the
+   * site. The sort is stable, so products sharing a number keep the server's
+   * sequence, exactly as the shops resolve a tie.
+   */
+  const rows = [...(data?.products ?? [])].sort(
+    (a, b) => productOrder(a) - productOrder(b)
+  );
+
+  /** Swaps two neighbours' `order`, renumbering the page if it has no numbers yet. */
+  const move = (index: number, dir: -1 | 1) => {
+    const target = index + dir;
+    if (target < 0 || target >= rows.length) return;
+
+    const distinct = new Set(rows.map(productOrder));
+    if (distinct.size < rows.length) {
+      // Seed data leaves ties (or all zeroes), and swapping equal numbers is a
+      // no-op — hand every row on this page its own position first.
+      const next = [...rows];
+      [next[index], next[target]] = [next[target], next[index]];
+      reorder.mutate(
+        next.map((product, i) => ({ product, order: i + 1 }))
+      );
+      return;
+    }
+
+    reorder.mutate([
+      { product: rows[index], order: productOrder(rows[target]) },
+      { product: rows[target], order: productOrder(rows[index]) },
+    ]);
+  };
 
   return (
     <div className="space-y-5">
       <PageHeader
         title="Продукты"
-        description="Управление каталогом: цены, остатки, статус и медиа"
+        description="Управление каталогом: порядок на сайте, цены, остатки, статус и медиа"
         actions={
           <Button asChild>
             <Link href={`${basePath}/products/new`}>
@@ -174,6 +220,7 @@ export const ProductsPage = ({ basePath, showStoreFilter = false }: ProductsPage
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-20">Порядок</TableHead>
                     <TableHead className="w-[340px]">Продукт</TableHead>
                     <TableHead>SKU</TableHead>
                     {showStoreFilter && <TableHead>Магазин</TableHead>}
@@ -184,10 +231,39 @@ export const ProductsPage = ({ basePath, showStoreFilter = false }: ProductsPage
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {data.products.map((p) => {
+                  {rows.map((p, index) => {
                     const main = p.media?.find((m) => m.isMain) ?? p.media?.[0];
                     return (
                       <TableRow key={p.id} className="group">
+                        <TableCell>
+                          <div className="flex items-center gap-0.5">
+                            <div className="flex flex-col">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="size-6"
+                                aria-label="Выше в каталоге"
+                                disabled={index === 0 || reorder.isPending}
+                                onClick={() => move(index, -1)}
+                              >
+                                <ArrowUp className="size-3.5" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="size-6"
+                                aria-label="Ниже в каталоге"
+                                disabled={index === rows.length - 1 || reorder.isPending}
+                                onClick={() => move(index, 1)}
+                              >
+                                <ArrowDown className="size-3.5" />
+                              </Button>
+                            </div>
+                            <span className="font-mono text-xs text-muted-foreground">
+                              {productOrder(p) || "—"}
+                            </span>
+                          </div>
+                        </TableCell>
                         <TableCell>
                           <Link
                             href={`${basePath}/products/${p.id}`}
@@ -339,3 +415,16 @@ export const ProductsPage = ({ basePath, showStoreFilter = false }: ProductsPage
     </div>
   );
 };
+
+/**
+ * The product's place in the storefront grid.
+ *
+ * `attributes` is free-form JSONB, so this can legitimately be absent (a
+ * product created before ordering was editable) or a string (written by hand);
+ * both resolve to 0, which sorts first and keeps the server's sequence.
+ */
+function productOrder(product: Product): number {
+  const value = product.attributes?.order;
+  const parsed = typeof value === "string" ? Number(value) : value;
+  return typeof parsed === "number" && Number.isFinite(parsed) ? parsed : 0;
+}
