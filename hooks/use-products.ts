@@ -116,18 +116,50 @@ export const useUpdateProduct = () => {
 };
 
 /**
+ * Whether this product's `attributes` can be written back without losing data.
+ *
+ * `PATCH /products/cms/:id` **replaces** `attributes` rather than merging, and
+ * its validator only accepts flat scalars — a payload carrying the seeded
+ * `images`, `content`, `meters` or `*Keys` is rejected with 422, and a payload
+ * without them silently deletes them. So a product whose attributes are all
+ * scalars can be written losslessly, and one carrying a nested value cannot be
+ * written at all.
+ *
+ * Ordering lives in `attributes.order` because the products table has no sort
+ * column. Until the backend either merges `attributes` or grows a real
+ * `sortOrder` field, the storefronts keep sorting by the numbers already in the
+ * database (and by their bundled catalogue where those are absent), and this
+ * screen shows the order without offering to change it.
+ */
+export const canWriteAttributes = (
+  attributes: Record<string, unknown> | null | undefined
+): boolean =>
+  Object.values(attributes ?? {}).every(
+    (value) =>
+      value === null ||
+      value === undefined ||
+      ["string", "number", "boolean"].includes(typeof value)
+  );
+
+/**
  * Moves a product in the storefront grid.
  *
- * The shops sort their catalogue by `attributes.order`, which no screen could
- * reach until now — the API answers in insertion order, so "put this jar
- * first" was a code change. `attributes` is spread rather than replaced: it
- * also holds the seeded structural data (accent, image sets, per-locale copy)
- * that the storefronts read.
+ * Refuses any product the write would damage rather than reordering some of the
+ * row and corrupting the rest — see `canWriteAttributes`.
  */
 export const useReorderProducts = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (moves: { product: Product; order: number }[]) => {
+      const unsafe = moves.filter(({ product }) => !canWriteAttributes(product.attributes));
+      if (unsafe.length) {
+        throw new Error(
+          `Порядок нельзя сохранить: у ${unsafe
+            .map((m) => m.product.slug)
+            .join(", ")} есть вложенные attributes, а API их не принимает и затирает. Нужна доработка бэкенда.`
+        );
+      }
+
       await Promise.all(
         moves.map(({ product, order }) =>
           api.patch(`/products/cms/${product.id}`, {

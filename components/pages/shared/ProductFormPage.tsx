@@ -36,6 +36,7 @@ import { PageHeader } from "@/components/shared/PageHeader";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { ProductLandingEditor } from "@/components/pages/shared/product-landing/ProductLandingEditor";
 import {
+  canWriteAttributes,
   useProduct,
   useCreateProduct,
   useUpdateProduct,
@@ -66,10 +67,13 @@ const schema = z.object({
   categoryId: z.string().uuid("Выберите категорию"),
   status: z.enum(["active", "draft", "archived"]),
   isFeatured: z.boolean(),
-  /**
+/**
    * Where the product sits in the storefront grid. Lives in `attributes.order`
-   * — the shops sort by it, the API answers in its own insertion order, so
-   * without this field the merchandising sequence was unreachable from here.
+   * — the shops sort by it, and the API answers in its own insertion order.
+   *
+   * Read-only for most products: see `canWriteAttributes`. The field still
+   * shows the current number, because "which position is this in" is a
+   * question worth answering even when the answer cannot be edited here yet.
    */
   sortOrder: z.coerce.number().int().min(0),
 });
@@ -164,11 +168,17 @@ export const ProductFormPage = ({ basePath, productId }: ProductFormPageProps) =
       status: values.status,
       isFeatured: values.isFeatured,
       /*
-       * Spread, not replaced: `attributes` also carries the seeded structural
-       * data the storefronts read (accent, image sets, per-locale copy), and
-       * sending `{ order }` alone would wipe all of it.
+       * `attributes` is only sent when it can be sent losslessly.
+       *
+       * The endpoint replaces the whole object instead of merging, and its
+       * validator rejects anything that is not a flat scalar — so a product
+       * carrying the seeded `images` / `content` / `meters` blobs cannot have
+       * its order written from here without either a 422 or silent data loss.
+       * Omitting the key leaves the stored attributes untouched.
        */
-      attributes: { ...(product?.attributes ?? {}), order: values.sortOrder },
+      ...(orderIsEditable
+        ? { attributes: { ...(product?.attributes ?? {}), order: values.sortOrder } }
+        : {}),
     };
 
     if (isEdit && productId) {
@@ -190,6 +200,8 @@ export const ProductFormPage = ({ basePath, productId }: ProductFormPageProps) =
     c,
     ...(c.subcategories ?? []),
   ]);
+
+  const orderIsEditable = !isEdit || canWriteAttributes(product?.attributes);
 
   const mainForm = (
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
@@ -255,10 +267,30 @@ export const ProductFormPage = ({ basePath, productId }: ProductFormPageProps) =
                 </div>
                 <div className="space-y-2 sm:col-span-2">
                   <Label htmlFor="sortOrder">Порядок на сайте</Label>
-                  <Input id="sortOrder" type="number" min={0} {...form.register("sortOrder")} />
+                  <Input
+                    id="sortOrder"
+                    type="number"
+                    min={0}
+                    disabled={!orderIsEditable}
+                    {...form.register("sortOrder")}
+                  />
                   <p className="text-xs text-muted-foreground">
-                    Чем меньше число, тем выше товар в каталоге витрины. Товары с
-                    одинаковым числом остаются в порядке, который вернул сервер.
+                    {orderIsEditable ? (
+                      <>
+                        Чем меньше число, тем выше товар в каталоге витрины. Товары
+                        с одинаковым числом остаются в порядке, который вернул
+                        сервер.
+                      </>
+                    ) : (
+                      <>
+                        Пока только для чтения: у этого товара есть вложенные
+                        <code className="mx-1 font-mono">attributes</code>
+                        (сиды изображений и копирайта), а <code className="font-mono">PATCH</code>{" "}
+                        их не принимает и затирает. Нужна доработка бэкенда —
+                        мерж <code className="font-mono">attributes</code> или
+                        отдельное поле сортировки.
+                      </>
+                    )}
                   </p>
                 </div>
               </CardContent>

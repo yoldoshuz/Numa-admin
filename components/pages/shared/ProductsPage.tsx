@@ -49,6 +49,7 @@ import { StoreBadge } from "@/components/shared/StoreBadge";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { DataPagination } from "@/components/shared/DataPagination";
 import {
+  canWriteAttributes,
   useProducts,
   useDeleteProduct,
   useReorderProducts,
@@ -101,6 +102,15 @@ export const ProductsPage = ({ basePath, showStoreFilter = false }: ProductsPage
   const rows = [...(data?.products ?? [])].sort(
     (a, b) => productOrder(a) - productOrder(b)
   );
+
+  /*
+   * Ordering is only offered where it can actually be saved. The number lives
+   * in `attributes.order`, and the update endpoint replaces `attributes`
+   * wholesale while refusing anything but flat scalars — so for a product
+   * carrying the seeded image and copy blobs, moving it would either fail or
+   * delete them. Arrows are disabled there rather than left to fail on click.
+   */
+  const canReorder = rows.every((p) => canWriteAttributes(p.attributes));
 
   /** Swaps two neighbours' `order`, renumbering the page if it has no numbers yet. */
   const move = (index: number, dir: -1 | 1) => {
@@ -243,7 +253,8 @@ export const ProductsPage = ({ basePath, showStoreFilter = false }: ProductsPage
                                 size="icon"
                                 className="size-6"
                                 aria-label="Выше в каталоге"
-                                disabled={index === 0 || reorder.isPending}
+                                title={canReorder ? undefined : REORDER_BLOCKED}
+                                disabled={!canReorder || index === 0 || reorder.isPending}
                                 onClick={() => move(index, -1)}
                               >
                                 <ArrowUp className="size-3.5" />
@@ -253,7 +264,10 @@ export const ProductsPage = ({ basePath, showStoreFilter = false }: ProductsPage
                                 size="icon"
                                 className="size-6"
                                 aria-label="Ниже в каталоге"
-                                disabled={index === rows.length - 1 || reorder.isPending}
+                                title={canReorder ? undefined : REORDER_BLOCKED}
+                                disabled={
+                                  !canReorder || index === rows.length - 1 || reorder.isPending
+                                }
                                 onClick={() => move(index, 1)}
                               >
                                 <ArrowDown className="size-3.5" />
@@ -415,6 +429,10 @@ export const ProductsPage = ({ basePath, showStoreFilter = false }: ProductsPage
     </div>
   );
 };
+
+/** Shown on the disabled arrows so the reason is discoverable, not a mystery. */
+const REORDER_BLOCKED =
+  "Порядок пока нельзя менять: он хранится в attributes.order, а PATCH заменяет attributes целиком и не принимает вложенные значения. Нужна доработка бэкенда.";
 
 /**
  * The product's place in the storefront grid.
