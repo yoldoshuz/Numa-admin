@@ -137,7 +137,8 @@ export const ProductLandingEditor = ({ productId }: { productId: string }) => {
             <p className="text-xs text-muted-foreground">
               Слева — секции сверху вниз, ровно в том порядке, в котором они идут
               на сайте. Выберите секцию, чтобы отредактировать текст; справа сразу
-              видно, что получится.
+              видно, что получится. Правки сохраняются сами через пару секунд после
+              того, как вы закончили печатать.
             </p>
           </div>
 
@@ -437,18 +438,31 @@ const BlockForm = ({
             {blockHint(block.type)}
           </p>
         </div>
-        <div className="flex shrink-0 items-center gap-3">
-          <SaveState dirty={dirty} pending={update.isPending} />
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            disabled={!dirty || update.isPending}
-            onClick={() => save(draft)}
-          >
-            <Save className="size-4" />
-            Сохранить
-          </Button>
+        {/*
+          One control, three states — not a status line beside a button that
+          greys itself out. The pair read as broken: the autosave clears
+          `dirty` a second and a half after the last keystroke, so the button
+          was enabled or disabled depending on how long ago you stopped typing,
+          which from the outside looks like "sometimes I can save and sometimes
+          I can't".
+        */}
+        <div className="flex shrink-0 items-center gap-2">
+          {update.isPending ? (
+            <span className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Spinner className="size-3.5" />
+              Сохраняем…
+            </span>
+          ) : dirty ? (
+            <Button type="button" size="sm" onClick={() => save(draft)}>
+              <Save className="size-4" />
+              Сохранить
+            </Button>
+          ) : (
+            <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Check className="size-3.5 text-teal-600 dark:text-teal-400" />
+              Всё сохранено
+            </span>
+          )}
         </div>
       </CardHeader>
 
@@ -524,30 +538,6 @@ const BlockForm = ({
         </CardContent>
       </Card>
     </>
-  );
-};
-
-const SaveState = ({ dirty, pending }: { dirty: boolean; pending: boolean }) => {
-  if (pending) {
-    return (
-      <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-        <Spinner className="size-3" />
-        Сохраняем…
-      </span>
-    );
-  }
-  if (dirty) {
-    return (
-      <span className="text-xs text-amber-700 dark:text-amber-300">
-        Есть несохранённые изменения
-      </span>
-    );
-  }
-  return (
-    <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-      <Check className="size-3.5 text-teal-600 dark:text-teal-400" />
-      Сохранено
-    </span>
   );
 };
 

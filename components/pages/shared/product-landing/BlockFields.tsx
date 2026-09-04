@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -69,28 +69,12 @@ export const BlockFields = ({
 
           case "number":
             return (
-              <div key={field.name} className="space-y-1.5">
-                <Label>
-                  {fieldLabel(field.name)}
-                  {field.required && <span className="text-destructive"> *</span>}
-                </Label>
-                <Input
-                  type="number"
-                  min={field.min}
-                  max={field.max}
-                  value={typeof data[field.name] === "number" ? (data[field.name] as number) : ""}
-                  onChange={(e) => {
-                    const raw = e.target.value;
-                    if (raw === "") return set(field.name, field.min ?? 0);
-                    const clamped = Math.min(
-                      field.max ?? Number.MAX_SAFE_INTEGER,
-                      Math.max(field.min ?? Number.MIN_SAFE_INTEGER, Number(raw))
-                    );
-                    set(field.name, Math.round(clamped));
-                  }}
-                  className="w-32"
-                />
-              </div>
+              <NumberField
+                key={field.name}
+                field={field}
+                value={typeof data[field.name] === "number" ? (data[field.name] as number) : null}
+                onChange={(value) => set(field.name, value)}
+              />
             );
 
           case "icon":
@@ -140,6 +124,92 @@ export const BlockFields = ({
           }
         }
       })}
+    </div>
+  );
+};
+
+/**
+ * A number field you can actually retype.
+ *
+ * Bound straight to the stored number, this was unusable: the value is 0 by
+ * default, backspacing over the zero produced an empty string, and the handler
+ * immediately wrote 0 back — so the field snapped to "0" and there was no way
+ * to replace it, only to type digits around it. Clamping on every keystroke
+ * made it worse: on a 0…100 field, typing the "1" of "100" was fine but a
+ * fourth digit silently rewrote what you had.
+ *
+ * So the text being typed is local state, the stored number follows it, and
+ * the clamp waits for blur — when the field is empty on blur it falls back to
+ * the minimum, which is the only moment that guess is not in the way.
+ */
+const NumberField = ({
+  field,
+  value,
+  onChange,
+}: {
+  field: BlockField;
+  value: number | null;
+  onChange: (value: number) => void;
+}) => {
+  const min = field.min ?? 0;
+  const max = field.max ?? Number.MAX_SAFE_INTEGER;
+  // `field.name` is not unique — every row of a list carries its own `percent`.
+  const id = useId();
+
+  const show = (n: number | null) => (n === null ? "" : String(n));
+
+  /*
+   * The text being typed, adjusted when the row underneath changes.
+   *
+   * List rows are keyed by index, so moving one up or down hands this same
+   * component the neighbour's number — without noticing, the field would keep
+   * showing the old one. React's own answer to "reset state when a prop
+   * changes" is to set it during render rather than in an effect, which is
+   * what `seen` tracks. The `Number(text)` guard means a save round-trip
+   * reporting back the value we just sent does not interrupt typing, and an
+   * emptied field stays empty (`Number("") === 0`).
+   */
+  const [text, setText] = useState(() => show(value));
+  const [seen, setSeen] = useState(value);
+
+  if (seen !== value) {
+    setSeen(value);
+    if (Number(text) !== value) setText(show(value));
+  }
+
+  return (
+    <div className="space-y-1.5">
+      <Label htmlFor={id}>
+        {fieldLabel(field.name)}
+        {field.required && <span className="text-destructive"> *</span>}
+        <span className="ml-2 text-xs font-normal text-muted-foreground">
+          {min}–{max === Number.MAX_SAFE_INTEGER ? "∞" : max}
+        </span>
+      </Label>
+      <Input
+        id={id}
+        type="number"
+        inputMode="numeric"
+        min={field.min}
+        max={field.max}
+        value={text}
+        onChange={(e) => {
+          const raw = e.target.value;
+          setText(raw);
+          const parsed = Number(raw);
+          if (raw !== "" && Number.isFinite(parsed)) onChange(Math.round(parsed));
+        }}
+        onBlur={() => {
+          const parsed = Number(text);
+          const settled =
+            text === "" || !Number.isFinite(parsed)
+              ? min
+              : Math.min(max, Math.max(min, Math.round(parsed)));
+          setText(String(settled));
+          if (settled !== value) onChange(settled);
+        }}
+        className="w-32"
+      />
     </div>
   );
 };
