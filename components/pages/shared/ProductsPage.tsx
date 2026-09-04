@@ -60,6 +60,10 @@ import { formatPrice, getLocalized } from "@/lib/format";
 import type { Product, ProductStatus, StoreSlug } from "@/lib/types";
 import { MARKETPLACE_STORES } from "@/lib/constants";
 
+/** Shown on the disabled arrows so the reason is discoverable, not a mystery. */
+const PICK_A_STORE =
+  "Выберите магазин: порядок задаётся внутри одного магазина, а в общем списке они перемешаны.";
+
 interface ProductsPageProps {
   basePath: string;
   showStoreFilter?: boolean;
@@ -99,6 +103,17 @@ export const ProductsPage = ({ basePath, showStoreFilter = false }: ProductsPage
 
   /** Already in `sortOrder` order — the request asks the server for it. */
   const rows = data?.products ?? [];
+
+  /*
+   * Reordering only makes sense inside one store.
+   *
+   * `sortOrder` is per-store merchandising, so the combined view interleaves
+   * three separate sequences — three products at 10, three at 20 — and moving
+   * one past a neighbour from another shop changes nothing on either site.
+   * A store-scoped admin is already looking at one store, so the arrows are
+   * live for them without picking anything.
+   */
+  const oneStore = !showStoreFilter || store !== "all";
 
   /** Swaps two neighbours' position, numbering the page first if it has no numbers yet. */
   const move = (index: number, dir: -1 | 1) => {
@@ -243,7 +258,8 @@ export const ProductsPage = ({ basePath, showStoreFilter = false }: ProductsPage
                                 size="icon"
                                 className="size-6"
                                 aria-label="Выше в каталоге"
-                                disabled={index === 0 || reorder.isPending}
+                                title={oneStore ? undefined : PICK_A_STORE}
+                                disabled={!oneStore || index === 0 || reorder.isPending}
                                 onClick={() => move(index, -1)}
                               >
                                 <ArrowUp className="size-3.5" />
@@ -253,7 +269,10 @@ export const ProductsPage = ({ basePath, showStoreFilter = false }: ProductsPage
                                 size="icon"
                                 className="size-6"
                                 aria-label="Ниже в каталоге"
-                                disabled={index === rows.length - 1 || reorder.isPending}
+                                title={oneStore ? undefined : PICK_A_STORE}
+                                disabled={
+                                  !oneStore || index === rows.length - 1 || reorder.isPending
+                                }
                                 onClick={() => move(index, 1)}
                               >
                                 <ArrowDown className="size-3.5" />
