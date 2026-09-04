@@ -32,6 +32,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Loader } from "@/components/states/Loader";
 import { ErrorState } from "@/components/states/Error";
@@ -51,10 +52,14 @@ import { STORES } from "@/lib/constants";
 import { formatDate } from "@/lib/format";
 import type { LocalizedText, Review, ReviewInput, StoreSlug } from "@/lib/types";
 
-const LOCALES: { key: keyof LocalizedText; label: string }[] = [
-  { key: "uz", label: "O‘zbekcha" },
-  { key: "ru", label: "Русский" },
-  { key: "en", label: "English" },
+/**
+ * Uzbek first — it is the language the shops sell in, and the one a moderator
+ * writing a new review reaches for.
+ */
+const LOCALES: { key: keyof LocalizedText; label: string; short: string }[] = [
+  { key: "uz", label: "O‘zbekcha", short: "UZ" },
+  { key: "ru", label: "Русский", short: "RU" },
+  { key: "en", label: "English", short: "EN" },
 ];
 
 const emptyText = (): LocalizedText => ({ uz: "", ru: "", en: "" });
@@ -339,41 +344,68 @@ export const ReviewsPage = ({ showStoreFilter = false }: ReviewsPageProps) => {
                 </div>
               )}
 
-              {LOCALES.map((locale) => (
-                <div key={locale.key} className="space-y-2 rounded-lg border p-4">
-                  <p className="text-sm font-semibold">{locale.label}</p>
-                  <div className="space-y-2">
-                    <Label htmlFor={`title-${locale.key}`}>Заголовок</Label>
-                    <Input
-                      id={`title-${locale.key}`}
-                      value={draft.title[locale.key]}
-                      onChange={(e) =>
-                        setDraft({
-                          ...draft,
-                          title: { ...draft.title, [locale.key]: e.target.value },
-                        })
-                      }
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor={`text-${locale.key}`}>Текст</Label>
-                    <Textarea
-                      id={`text-${locale.key}`}
-                      rows={3}
-                      value={draft.description[locale.key]}
-                      onChange={(e) =>
-                        setDraft({
-                          ...draft,
-                          description: {
-                            ...draft.description,
-                            [locale.key]: e.target.value,
-                          },
-                        })
-                      }
-                    />
-                  </div>
-                </div>
-              ))}
+              {/*
+                Tabs rather than three stacked cards, matching the product form.
+                Stacked, the six fields ran past the bottom of the dialog and the
+                English pair was below the fold on every laptop — so a review
+                saved by scrolling to the buttons was routinely missing a
+                language the API requires. One language at a time fits, and the
+                badge says which are still empty without opening them.
+              */}
+              <Tabs defaultValue={LOCALES[0].key}>
+                <TabsList>
+                  {LOCALES.map((locale) => {
+                    const blank =
+                      !draft.title[locale.key].trim() ||
+                      !draft.description[locale.key].trim();
+                    return (
+                      <TabsTrigger key={locale.key} value={locale.key} className="gap-2">
+                        {locale.label}
+                        {blank && (
+                          <span className="size-1.5 rounded-full bg-amber-500" aria-hidden />
+                        )}
+                      </TabsTrigger>
+                    );
+                  })}
+                </TabsList>
+
+                {LOCALES.map((locale) => (
+                  <TabsContent key={locale.key} value={locale.key} className="space-y-4 pt-4">
+                    <div className="space-y-2">
+                      <Label htmlFor={`title-${locale.key}`}>
+                        Заголовок ({locale.short})
+                      </Label>
+                      <Input
+                        id={`title-${locale.key}`}
+                        value={draft.title[locale.key]}
+                        onChange={(e) =>
+                          setDraft({
+                            ...draft,
+                            title: { ...draft.title, [locale.key]: e.target.value },
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor={`text-${locale.key}`}>Текст ({locale.short})</Label>
+                      <Textarea
+                        id={`text-${locale.key}`}
+                        rows={5}
+                        value={draft.description[locale.key]}
+                        onChange={(e) =>
+                          setDraft({
+                            ...draft,
+                            description: {
+                              ...draft.description,
+                              [locale.key]: e.target.value,
+                            },
+                          })
+                        }
+                      />
+                    </div>
+                  </TabsContent>
+                ))}
+              </Tabs>
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">

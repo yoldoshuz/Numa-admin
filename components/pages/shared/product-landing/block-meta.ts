@@ -75,6 +75,28 @@ const BLOCK_LABEL: Record<string, string> = {
 export const blockLabel = (type: ProductBlockType | string, titleRu?: string) =>
   titleRu || BLOCK_LABEL[type] || type;
 
+/**
+ * What each block actually is, in one line.
+ *
+ * The type names alone do not tell a moderator much — "Описание и цифры" and
+ * "Шкалы эффективности" are both "text plus numbers" until you have seen the
+ * page. These say where on the page the block lands and what it looks like
+ * there, so picking the right one does not require opening the site.
+ */
+const BLOCK_HINT: Record<string, string> = {
+  hero: "Плашка, краткое описание и текст над ценой — самый верх карточки.",
+  specs: "Таблица «название — значение» под кнопкой покупки. Строк сколько нужно.",
+  benefits: "Сетка карточек «для чего нужен»: заголовок, текст и иконка.",
+  how_to_use: "Нумерованные шаги приёма. Номера ставит сайт — просто расставьте шаги по порядку.",
+  warnings: "Список правил на цветной плашке рядом с фотографиями.",
+  about: "Абзац о продукте и до четырёх крупных цифр вокруг упаковки.",
+  advantages: "Короткие строки с галочками под баннером.",
+  metrics: "Полоски с процентами: заголовок, пояснение и число от 0 до 100.",
+  faq: "Вопросы и ответы. Секции нет на сайте, пока не добавлен хотя бы один вопрос.",
+};
+
+export const blockHint = (type: ProductBlockType | string) => BLOCK_HINT[type] ?? "";
+
 /** Fields long enough to deserve a textarea rather than a single line. */
 const MULTILINE = new Set(["text", "description", "answer", "tagline"]);
 

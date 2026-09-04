@@ -54,6 +54,7 @@ import type {
 import { BlockFields } from "./BlockFields";
 import { BlockPreview } from "./BlockPreview";
 import {
+  blockHint,
   blockLabel,
   defaultData,
   isLanguageEmpty,
@@ -111,6 +112,7 @@ export const ProductLandingEditor = ({ productId }: { productId: string }) => {
 
   const limits = schemas.data?.limits;
   const atBlockLimit = !!limits && list.length >= limits.maxBlocksPerProduct;
+  const published = list.filter((block) => block.isVisible).length;
 
   const move = (index: number, dir: -1 | 1) => {
     const target = index + dir;
@@ -128,10 +130,14 @@ export const ProductLandingEditor = ({ productId }: { productId: string }) => {
             <div className="flex items-center gap-2">
               <LayoutList className="size-4 text-muted-foreground" />
               <p className="text-sm font-medium">Секции страницы товара</p>
+              <Badge variant="outline" className="font-normal">
+                {published} из {list.length} показывается
+              </Badge>
             </div>
             <p className="text-xs text-muted-foreground">
-              Порядок сверху вниз — это порядок на сайте. Скрытый блок остаётся
-              здесь, но покупатель его не видит.
+              Слева — секции сверху вниз, ровно в том порядке, в котором они идут
+              на сайте. Выберите секцию, чтобы отредактировать текст; справа сразу
+              видно, что получится.
             </p>
           </div>
 
@@ -156,7 +162,14 @@ export const ProductLandingEditor = ({ productId }: { productId: string }) => {
         </CardContent>
       </Card>
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
+      {/*
+        Three columns from `xl`: the shelf of sections, the form, and the
+        preview. The preview used to sit under the form, which meant the answer
+        to "what will this look like" was a scroll away from the field you were
+        typing in — on a nine-block page with lists inside, a long scroll.
+        Below `xl` it drops under the form, where it was.
+      */}
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,300px)_minmax(0,1fr)] xl:grid-cols-[minmax(0,280px)_minmax(0,1fr)_minmax(0,22rem)]">
         <Card className="h-fit">
           <CardHeader>
             <CardTitle className="text-base">
@@ -194,7 +207,7 @@ export const ProductLandingEditor = ({ productId }: { productId: string }) => {
                         {index + 1}
                       </span>
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-medium">
+                        <span className="block text-sm font-medium">
                           {blockLabel(block.type, schema?.titleRu)}
                         </span>
                         <span className="mt-1 flex flex-wrap items-center gap-1">
@@ -300,9 +313,11 @@ export const ProductLandingEditor = ({ productId }: { productId: string }) => {
             language={language}
           />
         ) : (
-          <Card>
+          // Spans the form and preview columns, so an empty state does not leave
+          // a narrow card floating next to two gaps.
+          <Card className="xl:col-span-2">
             <CardContent className="p-10 text-center text-sm text-muted-foreground">
-              Выберите блок слева
+              Выберите секцию слева
             </CardContent>
           </Card>
         )}
@@ -408,15 +423,21 @@ const BlockForm = ({
   const incomplete = missingRequired(schema?.fields, draft);
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3">
-        <div className="space-y-1">
+    <>
+    <Card className="h-fit">
+      <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 space-y-1">
           <CardTitle className="text-base">
             {blockLabel(block.type, schema?.titleRu)}
           </CardTitle>
-          <p className="font-mono text-xs text-muted-foreground">{block.type}</p>
+          {/* What this section is and where it lands, so choosing between
+              "Описание и цифры" and "Шкалы эффективности" does not require
+              opening the site. */}
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            {blockHint(block.type)}
+          </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex shrink-0 items-center gap-3">
           <SaveState dirty={dirty} pending={update.isPending} />
           <Button
             type="button"
@@ -439,14 +460,17 @@ const BlockForm = ({
           </p>
         )}
 
-        <div className="flex items-center justify-between rounded-lg border p-3">
+        <div className="flex items-center justify-between gap-4 rounded-lg border p-3">
           <div className="space-y-0.5">
-            <Label>Показывать на сайте</Label>
+            <Label htmlFor={`visible-${block.id}`}>Показывать на сайте</Label>
             <p className="text-xs text-muted-foreground">
-              Публикация не зависит от полноты перевода
+              {block.isVisible
+                ? "Секция видна покупателям."
+                : "Секция скрыта: текст сохраняется, но на сайте её нет."}
             </p>
           </div>
           <Switch
+            id={`visible-${block.id}`}
             checked={block.isVisible}
             onCheckedChange={(v) =>
               update.mutate({ blockId: block.id, type: block.type, isVisible: v })
@@ -455,9 +479,10 @@ const BlockForm = ({
         </div>
 
         {incomplete && (
-          <p className="flex items-center gap-2 text-xs text-amber-700 dark:text-amber-300">
-            <CircleAlert className="size-3.5" />
-            Обязательные поля заполнены не полностью — блок лучше не публиковать
+          <p className="flex items-start gap-2 text-xs leading-relaxed text-amber-700 dark:text-amber-300">
+            <CircleAlert className="mt-0.5 size-3.5 shrink-0" />
+            Обязательные поля (со звёздочкой) заполнены не полностью — секцию лучше
+            пока не показывать на сайте.
           </p>
         )}
 
@@ -473,14 +498,32 @@ const BlockForm = ({
           }}
         />
 
-        <div className="space-y-2 border-t pt-5">
-          <Label className="text-xs text-muted-foreground uppercase">
-            Предпросмотр · {LANGUAGE_LABEL[language]}
-          </Label>
-          <BlockPreview fields={schema?.fields} data={draft} language={language} />
-        </div>
       </CardContent>
     </Card>
+
+      {/*
+        Sticky, so it stays beside the field being edited on a long block —
+        `specs` and `benefits` run to thirty rows.
+      */}
+      <Card className="h-fit xl:sticky xl:top-4">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Eye className="size-4 text-muted-foreground" />
+            Предпросмотр
+            <Badge variant="outline" className="font-normal">
+              {LANGUAGE_LABEL[language]}
+            </Badge>
+          </CardTitle>
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            Так секция читается на выбранном языке. Оформление на сайте своё у
+            каждого магазина.
+          </p>
+        </CardHeader>
+        <CardContent>
+          <BlockPreview fields={schema?.fields} data={draft} language={language} />
+        </CardContent>
+      </Card>
+    </>
   );
 };
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import Link from "next/link";
 import {
   ArrowDown,
@@ -32,6 +32,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -101,19 +102,31 @@ export const ProductsPage = ({ basePath, showStoreFilter = false }: ProductsPage
   const updateStatus = useUpdateProductStatus();
   const reorder = useReorderProducts();
 
-  /** Already in `sortOrder` order — the request asks the server for it. */
-  const rows = data?.products ?? [];
+  const oneStore = !showStoreFilter || store !== "all";
 
   /*
-   * Reordering only makes sense inside one store.
-   *
-   * `sortOrder` is per-store merchandising, so the combined view interleaves
-   * three separate sequences — three products at 10, three at 20 — and moving
-   * one past a neighbour from another shop changes nothing on either site.
-   * A store-scoped admin is already looking at one store, so the arrows are
-   * live for them without picking anything.
+   * One store: already in `sortOrder` order, because the request asks the
+   * server for it. All stores: re-grouped so each shop's shelf stays whole
+   * instead of three of them interleaving — `sortOrder` is per-store, so the
+   * server's ascending sort alternates between catalogues that each start at
+   * 10. The store sequence follows `MARKETPLACE_STORES`, the same order the
+   * tabs are in.
    */
-  const oneStore = !showStoreFilter || store !== "all";
+  const rows = oneStore
+    ? (data?.products ?? [])
+    : [...(data?.products ?? [])].sort(
+        (a, b) =>
+          MARKETPLACE_STORES.findIndex((s) => s.value === a.store) -
+            MARKETPLACE_STORES.findIndex((s) => s.value === b.store) ||
+          (a.sortOrder ?? 0) - (b.sortOrder ?? 0)
+      );
+
+  /*
+   * Reordering only makes sense inside one store: `sortOrder` is per-store, so
+   * moving a product past a neighbour from another shop changes nothing on
+   * either site. A store-scoped admin is already looking at one store, so the
+   * arrows are live for them without picking anything.
+   */
 
   /** Swaps two neighbours' position, numbering the page first if it has no numbers yet. */
   const move = (index: number, dir: -1 | 1) => {
@@ -155,6 +168,34 @@ export const ProductsPage = ({ basePath, showStoreFilter = false }: ProductsPage
         }
       />
 
+      {/*
+        Stores are tabs, not one more dropdown in the filter row.
+
+        Three catalogues in a single list read as mush: the shops share nothing
+        but a backend, each numbers its shelf from the start, and "which of
+        these is mine" was a question the screen made you answer by squinting at
+        a badge. A tab is also the honest home for the ordering arrows, since a
+        position only means anything inside one shop.
+      */}
+      {showStoreFilter && (
+        <Tabs
+          value={store}
+          onValueChange={(v) => {
+            setStore(v as StoreSlug | "all");
+            setPage(1);
+          }}
+        >
+          <TabsList>
+            <TabsTrigger value="all">Все магазины</TabsTrigger>
+            {MARKETPLACE_STORES.map((s) => (
+              <TabsTrigger key={s.value} value={s.value}>
+                {s.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
+      )}
+
       <Card>
         <CardContent className="flex flex-wrap items-center gap-3 p-4">
           <div className="relative min-w-[220px] flex-1">
@@ -186,27 +227,6 @@ export const ProductsPage = ({ basePath, showStoreFilter = false }: ProductsPage
               <SelectItem value="archived">Архив</SelectItem>
             </SelectContent>
           </Select>
-          {showStoreFilter && (
-            <Select
-              value={store}
-              onValueChange={(v) => {
-                setStore(v as StoreSlug | "all");
-                setPage(1);
-              }}
-            >
-              <SelectTrigger className="w-44">
-                <SelectValue placeholder="Магазин" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Все магазины</SelectItem>
-                {MARKETPLACE_STORES.map((s) => (
-                  <SelectItem key={s.value} value={s.value}>
-                    {s.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
         </CardContent>
       </Card>
 
@@ -248,8 +268,28 @@ export const ProductsPage = ({ basePath, showStoreFilter = false }: ProductsPage
                 <TableBody>
                   {rows.map((p, index) => {
                     const main = p.media?.find((m) => m.isMain) ?? p.media?.[0];
+                    /*
+                     * In the combined view every shop gets a heading before its
+                     * first row, so the three shelves read as three shelves.
+                     */
+                    const opensStore =
+                      !oneStore && (index === 0 || rows[index - 1].store !== p.store);
+
                     return (
-                      <TableRow key={p.id} className="group">
+                      <Fragment key={p.id}>
+                      {opensStore && (
+                        <TableRow className="hover:bg-transparent">
+                          <TableCell colSpan={8} className="bg-muted/40 py-2">
+                            <span className="flex items-center gap-2">
+                              <StoreBadge store={p.store} />
+                              <span className="text-xs text-muted-foreground">
+                                {rows.filter((r) => r.store === p.store).length} шт.
+                              </span>
+                            </span>
+                          </TableCell>
+                        </TableRow>
+                      )}
+                      <TableRow className="group">
                         <TableCell>
                           <div className="flex items-center gap-0.5">
                             <div className="flex flex-col">
@@ -394,6 +434,7 @@ export const ProductsPage = ({ basePath, showStoreFilter = false }: ProductsPage
                           </DropdownMenu>
                         </TableCell>
                       </TableRow>
+                      </Fragment>
                     );
                   })}
                 </TableBody>
