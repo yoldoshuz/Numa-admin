@@ -193,8 +193,18 @@ const NumberField = ({
         min={field.min}
         max={field.max}
         value={text}
+        /*
+         * Selected on focus, so typing replaces instead of appending.
+         *
+         * Every one of these starts at 0, and a caret dropped next to that zero
+         * turned "98" into "098" or "980" — the moderator's report was simply
+         * "because of the zero I cannot enter a number". Select-on-focus is
+         * what makes the field behave the way a number field is expected to.
+         */
+        onFocus={(e) => e.currentTarget.select()}
         onChange={(e) => {
-          const raw = e.target.value;
+          // Leading zeros dropped as you type: "098" is a number nobody meant.
+          const raw = e.target.value.replace(/^(-?)0+(?=\d)/, "$1");
           setText(raw);
           const parsed = Number(raw);
           if (raw !== "" && Number.isFinite(parsed)) onChange(Math.round(parsed));
