@@ -21,7 +21,7 @@ export interface ProductsFilters {
   search?: string;
   page?: number;
   limit?: number;
-  sortBy?: "createdAt" | "price" | "name";
+  sortBy?: "createdAt" | "price" | "name" | "sortOrder";
   sortDir?: "asc" | "desc";
 }
 
@@ -81,7 +81,9 @@ export interface CreateProductPayload {
   status?: ProductStatus;
   isFeatured?: boolean;
   brand?: string | null;
+  /** Merged server-side — send only the keys being changed. */
   attributes?: Record<string, unknown> | null;
+  sortOrder?: number;
 }
 
 export const useCreateProduct = () => {
@@ -116,55 +118,21 @@ export const useUpdateProduct = () => {
 };
 
 /**
- * Whether this product's `attributes` can be written back without losing data.
+ * Moves products in the storefront grid.
  *
- * `PATCH /products/cms/:id` **replaces** `attributes` rather than merging, and
- * its validator only accepts flat scalars — a payload carrying the seeded
- * `images`, `content`, `meters` or `*Keys` is rejected with 422, and a payload
- * without them silently deletes them. So a product whose attributes are all
- * scalars can be written losslessly, and one carrying a nested value cannot be
- * written at all.
- *
- * Ordering lives in `attributes.order` because the products table has no sort
- * column. Until the backend either merges `attributes` or grows a real
- * `sortOrder` field, the storefronts keep sorting by the numbers already in the
- * database (and by their bundled catalogue where those are absent), and this
- * screen shows the order without offering to change it.
- */
-export const canWriteAttributes = (
-  attributes: Record<string, unknown> | null | undefined
-): boolean =>
-  Object.values(attributes ?? {}).every(
-    (value) =>
-      value === null ||
-      value === undefined ||
-      ["string", "number", "boolean"].includes(typeof value)
-  );
-
-/**
- * Moves a product in the storefront grid.
- *
- * Refuses any product the write would damage rather than reordering some of the
- * row and corrupting the rest — see `canWriteAttributes`.
+ * Writes the dedicated `sortOrder` column. It used to live in
+ * `attributes.order`, which was the wrong home twice over: the update endpoint
+ * replaced `attributes` wholesale, so saving a position deleted the seeded
+ * image and copy blobs sitting beside it, and any unrelated save deleted the
+ * position right back.
  */
 export const useReorderProducts = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (moves: { product: Product; order: number }[]) => {
-      const unsafe = moves.filter(({ product }) => !canWriteAttributes(product.attributes));
-      if (unsafe.length) {
-        throw new Error(
-          `Порядок нельзя сохранить: у ${unsafe
-            .map((m) => m.product.slug)
-            .join(", ")} есть вложенные attributes, а API их не принимает и затирает. Нужна доработка бэкенда.`
-        );
-      }
-
       await Promise.all(
         moves.map(({ product, order }) =>
-          api.patch(`/products/cms/${product.id}`, {
-            attributes: { ...(product.attributes ?? {}), order },
-          })
+          api.patch(`/products/cms/${product.id}`, { sortOrder: order })
         )
       );
     },

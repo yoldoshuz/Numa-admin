@@ -79,8 +79,24 @@ export interface Product {
   status: ProductStatus;
   isFeatured: boolean;
   brand: string | null;
-  /** Free-form JSONB: `order` for the grid, plus seeded structural data the storefronts read. */
+  /**
+   * Free-form JSONB the storefronts read for structural data — image sets,
+   * per-locale copy, the numbers a section pairs its rows with.
+   *
+   * `PATCH` merges it: send only the keys you are changing, and send `null`
+   * as a value to delete one. It briefly held the catalogue order too, which is
+   * now `sortOrder` below — order is not a characteristic of the product, and
+   * keeping it here meant an unrelated save could wipe it.
+   */
   attributes: Record<string, unknown> | null;
+  /**
+   * Manual position in the storefront grid — lower is higher up, 0…100000.
+   *
+   * Its own column, so it survives any `attributes` edit and the API can sort
+   * on it. Every product starts at 0, and ties fall back to `createdAt DESC`,
+   * so a catalogue nobody has ordered by hand keeps the sequence it had.
+   */
+  sortOrder: number;
   media: ProductMedia[];
   category?: Category;
   createdAt?: string;

@@ -36,7 +36,6 @@ import { PageHeader } from "@/components/shared/PageHeader";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { ProductLandingEditor } from "@/components/pages/shared/product-landing/ProductLandingEditor";
 import {
-  canWriteAttributes,
   useProduct,
   useCreateProduct,
   useUpdateProduct,
@@ -67,15 +66,11 @@ const schema = z.object({
   categoryId: z.string().uuid("Выберите категорию"),
   status: z.enum(["active", "draft", "archived"]),
   isFeatured: z.boolean(),
-/**
-   * Where the product sits in the storefront grid. Lives in `attributes.order`
-   * — the shops sort by it, and the API answers in its own insertion order.
-   *
-   * Read-only for most products: see `canWriteAttributes`. The field still
-   * shows the current number, because "which position is this in" is a
-   * question worth answering even when the answer cannot be edited here yet.
+  /**
+   * Where the product sits in the storefront grid — its own column on the
+   * product, so an unrelated save cannot wipe it. Lower is higher up.
    */
-  sortOrder: z.coerce.number().int().min(0),
+  sortOrder: z.coerce.number().int().min(0).max(100000),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -145,7 +140,7 @@ export const ProductFormPage = ({ basePath, productId }: ProductFormPageProps) =
         categoryId: product.categoryId,
         status: product.status,
         isFeatured: product.isFeatured,
-        sortOrder: Number(product.attributes?.order ?? 0),
+        sortOrder: product.sortOrder ?? 0,
       });
     }
   }, [product, form]);
@@ -167,18 +162,13 @@ export const ProductFormPage = ({ basePath, productId }: ProductFormPageProps) =
       categoryId: values.categoryId,
       status: values.status,
       isFeatured: values.isFeatured,
+      sortOrder: values.sortOrder,
       /*
-       * `attributes` is only sent when it can be sent losslessly.
-       *
-       * The endpoint replaces the whole object instead of merging, and its
-       * validator rejects anything that is not a flat scalar — so a product
-       * carrying the seeded `images` / `content` / `meters` blobs cannot have
-       * its order written from here without either a 422 or silent data loss.
-       * Omitting the key leaves the stored attributes untouched.
+       * `attributes` is deliberately absent. This form has nothing to say
+       * about it — the storefronts' structural data lives there — and the
+       * endpoint merges what it is sent, so leaving the key out is what keeps
+       * it untouched.
        */
-      ...(orderIsEditable
-        ? { attributes: { ...(product?.attributes ?? {}), order: values.sortOrder } }
-        : {}),
     };
 
     if (isEdit && productId) {
@@ -200,8 +190,6 @@ export const ProductFormPage = ({ basePath, productId }: ProductFormPageProps) =
     c,
     ...(c.subcategories ?? []),
   ]);
-
-  const orderIsEditable = !isEdit || canWriteAttributes(product?.attributes);
 
   const mainForm = (
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
@@ -271,26 +259,18 @@ export const ProductFormPage = ({ basePath, productId }: ProductFormPageProps) =
                     id="sortOrder"
                     type="number"
                     min={0}
-                    disabled={!orderIsEditable}
+                    max={100000}
                     {...form.register("sortOrder")}
                   />
+                  {form.formState.errors.sortOrder && (
+                    <p className="text-xs text-destructive">
+                      {form.formState.errors.sortOrder.message}
+                    </p>
+                  )}
                   <p className="text-xs text-muted-foreground">
-                    {orderIsEditable ? (
-                      <>
-                        Чем меньше число, тем выше товар в каталоге витрины. Товары
-                        с одинаковым числом остаются в порядке, который вернул
-                        сервер.
-                      </>
-                    ) : (
-                      <>
-                        Пока только для чтения: у этого товара есть вложенные
-                        <code className="mx-1 font-mono">attributes</code>
-                        (сиды изображений и копирайта), а <code className="font-mono">PATCH</code>{" "}
-                        их не принимает и затирает. Нужна доработка бэкенда —
-                        мерж <code className="font-mono">attributes</code> или
-                        отдельное поле сортировки.
-                      </>
-                    )}
+                    Чем меньше число, тем выше товар в каталоге витрины. Товары с
+                    одинаковым числом идут от новых к старым. Проще менять
+                    стрелками в списке продуктов.
                   </p>
                 </div>
               </CardContent>

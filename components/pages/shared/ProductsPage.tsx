@@ -49,7 +49,6 @@ import { StoreBadge } from "@/components/shared/StoreBadge";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { DataPagination } from "@/components/shared/DataPagination";
 import {
-  canWriteAttributes,
   useProducts,
   useDeleteProduct,
   useReorderProducts,
@@ -77,6 +76,12 @@ export const ProductsPage = ({ basePath, showStoreFilter = false }: ProductsPage
   const filters: ProductsFilters = {
     page,
     limit: 20,
+    // The catalogue is shown in the order the storefronts show it, so the
+    // arrows below move a product past the neighbour it actually stands next
+    // to on the site. Ties resolve newest-first, server-side, which keeps
+    // paging stable while most of the catalogue still sits at 0.
+    sortBy: "sortOrder",
+    sortDir: "asc",
     search: search || undefined,
     status: status === "all" ? undefined : status,
     store:
@@ -92,46 +97,31 @@ export const ProductsPage = ({ basePath, showStoreFilter = false }: ProductsPage
   const updateStatus = useUpdateProductStatus();
   const reorder = useReorderProducts();
 
-  /*
-   * The table is ordered the way the storefront orders its grid, not the way
-   * the API happens to return rows — otherwise the arrows below would move a
-   * product relative to a neighbour it does not actually stand next to on the
-   * site. The sort is stable, so products sharing a number keep the server's
-   * sequence, exactly as the shops resolve a tie.
-   */
-  const rows = [...(data?.products ?? [])].sort(
-    (a, b) => productOrder(a) - productOrder(b)
-  );
+  /** Already in `sortOrder` order — the request asks the server for it. */
+  const rows = data?.products ?? [];
 
-  /*
-   * Ordering is only offered where it can actually be saved. The number lives
-   * in `attributes.order`, and the update endpoint replaces `attributes`
-   * wholesale while refusing anything but flat scalars — so for a product
-   * carrying the seeded image and copy blobs, moving it would either fail or
-   * delete them. Arrows are disabled there rather than left to fail on click.
-   */
-  const canReorder = rows.every((p) => canWriteAttributes(p.attributes));
-
-  /** Swaps two neighbours' `order`, renumbering the page if it has no numbers yet. */
+  /** Swaps two neighbours' position, numbering the page first if it has no numbers yet. */
   const move = (index: number, dir: -1 | 1) => {
     const target = index + dir;
     if (target < 0 || target >= rows.length) return;
 
-    const distinct = new Set(rows.map(productOrder));
+    const distinct = new Set(rows.map((p) => p.sortOrder ?? 0));
     if (distinct.size < rows.length) {
-      // Seed data leaves ties (or all zeroes), and swapping equal numbers is a
-      // no-op — hand every row on this page its own position first.
+      /*
+       * Every product ships at 0, and swapping two zeroes is a no-op — so the
+       * first move hands each row on this page its own number. Numbering is
+       * 10, 20, 30… rather than 1, 2, 3: it leaves room to drop a product
+       * between two others later without renumbering the shelf.
+       */
       const next = [...rows];
       [next[index], next[target]] = [next[target], next[index]];
-      reorder.mutate(
-        next.map((product, i) => ({ product, order: i + 1 }))
-      );
+      reorder.mutate(next.map((product, i) => ({ product, order: (i + 1) * 10 })));
       return;
     }
 
     reorder.mutate([
-      { product: rows[index], order: productOrder(rows[target]) },
-      { product: rows[target], order: productOrder(rows[index]) },
+      { product: rows[index], order: rows[target].sortOrder },
+      { product: rows[target], order: rows[index].sortOrder },
     ]);
   };
 
@@ -253,8 +243,7 @@ export const ProductsPage = ({ basePath, showStoreFilter = false }: ProductsPage
                                 size="icon"
                                 className="size-6"
                                 aria-label="Выше в каталоге"
-                                title={canReorder ? undefined : REORDER_BLOCKED}
-                                disabled={!canReorder || index === 0 || reorder.isPending}
+                                disabled={index === 0 || reorder.isPending}
                                 onClick={() => move(index, -1)}
                               >
                                 <ArrowUp className="size-3.5" />
@@ -264,17 +253,14 @@ export const ProductsPage = ({ basePath, showStoreFilter = false }: ProductsPage
                                 size="icon"
                                 className="size-6"
                                 aria-label="Ниже в каталоге"
-                                title={canReorder ? undefined : REORDER_BLOCKED}
-                                disabled={
-                                  !canReorder || index === rows.length - 1 || reorder.isPending
-                                }
+                                disabled={index === rows.length - 1 || reorder.isPending}
                                 onClick={() => move(index, 1)}
                               >
                                 <ArrowDown className="size-3.5" />
                               </Button>
                             </div>
                             <span className="font-mono text-xs text-muted-foreground">
-                              {productOrder(p) || "—"}
+                              {p.sortOrder || "—"}
                             </span>
                           </div>
                         </TableCell>
@@ -430,19 +416,3 @@ export const ProductsPage = ({ basePath, showStoreFilter = false }: ProductsPage
   );
 };
 
-/** Shown on the disabled arrows so the reason is discoverable, not a mystery. */
-const REORDER_BLOCKED =
-  "Порядок пока нельзя менять: он хранится в attributes.order, а PATCH заменяет attributes целиком и не принимает вложенные значения. Нужна доработка бэкенда.";
-
-/**
- * The product's place in the storefront grid.
- *
- * `attributes` is free-form JSONB, so this can legitimately be absent (a
- * product created before ordering was editable) or a string (written by hand);
- * both resolve to 0, which sorts first and keeps the server's sequence.
- */
-function productOrder(product: Product): number {
-  const value = product.attributes?.order;
-  const parsed = typeof value === "string" ? Number(value) : value;
-  return typeof parsed === "number" && Number.isFinite(parsed) ? parsed : 0;
-}
