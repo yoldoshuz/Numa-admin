@@ -36,8 +36,14 @@ One backend serves four storefronts. The codebase distinguishes two classes:
 |-------------|----------------|---------------|-------------------------------|
 | `nutrition` | Numa Nutrition | marketplace   | yes                           |
 | `kids`      | Numa Kids      | marketplace   | yes                           |
-| `halal`     | Numa Halal     | marketplace   | yes                           |
+| `halal`     | Nabaviy Tabobat | marketplace  | yes                           |
 | `family`    | Numa Family    | informational | **no** (blog + site pages only) |
+
+The `halal` slug is historical and stays: it is baked into the database, the
+`X-Store` header and every past order, so renaming it would break the
+storefronts. Nabaviy Tabobat is the signboard — the API sends and accepts
+`halal`, and mapping the slug to the name is the client's job (`STORE_LABEL` in
+`lib/constants.ts`).
 
 Two TypeScript constants in `src/types.ts`:
 - `STORE_SLUGS` — all 4 slugs. Used by site/blog/admin schemas.
@@ -48,7 +54,7 @@ Two TypeScript constants in `src/types.ts`:
 Store is specified per-request in one of three ways depending on the endpoint:
 - **URL path** for public + cart/order/site/blog-public endpoints (`storeParam` / `marketplaceStoreParam` middleware).
 - **Query param `?store=...`** or **body field `store`** for admin CMS list/create endpoints.
-- **`X-Store` HTTP header** — accepted by `storeContext` / `marketplaceStoreContext` middleware but not currently required on any route.
+- **`X-Store` HTTP header** — accepted by `storeContext` / `marketplaceStoreContext` middleware. Required on `POST /support-requests` (400 without it) and on `POST /auth/verify-otp` if the client is to get a `registrationStore` at all.
 
 Invalid store values:
 - Marketplace endpoints (`/cart/:store`, `/orders/:store/checkout`, `/products/*/:store`, `/categories/store/:store`, etc.) reject `family` with `400 Bad Request` — `"… Valid values: nutrition, kids, halal"`.
@@ -312,17 +318,64 @@ Admin JWT carries `role: 'admin' | 'super_admin'`, `store`, `permissions[]`.
 - 401 if current password mismatch.
 
 ### `GET /admin/users`
-- **Описание:** Список зарегистрированных customer users (глобально, не по магазинам).
+- **Описание:** Список зарегистрированных customer users. Аккаунт общий для всех
+  магазинов (один телефон = один аккаунт), поэтому «магазин клиента» — это два
+  разных поля, а не одно.
 - **Auth:** required + `Permission.USERS_READ` (`users:read`).
-- **Query:** `isActive?: boolean`, `page?: int≥1=1`, `limit?: int 1–100=20`.
-- **Response:** `{ users: Profile[], page, limit }`.
+- **Query:** `isActive?: boolean`, `store?: StoreSlug`, `page?: int≥1=1`, `limit?: int 1–100=20`.
+- `store` матчит **любое** из двух: зарегистрировался на этой витрине или был на
+  ней активен. Клиент, создавший аккаунт на `nutrition` и купивший на `kids`,
+  находится в обоих списках.
+- **Response:** `{ users: Profile[], page, limit }`, где у каждого профиля:
+  | field               | type              | смысл                                                                 |
+  |---------------------|-------------------|-----------------------------------------------------------------------|
+  | `registrationStore` | StoreSlug \| null | витрина, где завели аккаунт. Пишется один раз при первом подтверждении OTP (по `X-Store`) и больше не меняется. `null` — витрина не прислала заголовок либо аккаунт старше релиза и следов активности не нашлось. В интерфейсе — прочерк, магазин таким аккаунтам не выдумывается. |
+  | `stores`            | StoreSlug[]       | витрины, где клиент что-то делал: заказ, консультация, заявка на обратный звонок. Считается на лету, `[]` у тех, кто только зарегистрировался. |
+- `registrationStore` приходит и в `UserProfile` (`/auth/me`, ответ `verify-otp`) —
+  витрине он не нужен.
 
 ### `GET /admin/users/:id`
 - **Auth:** `users:read`.
 - **Response:** `{ user: Profile, orders: { total, items: Order[] (up to 50) } }`.
+  `data.user` содержит те же `registrationStore` / `stores`.
 
 ### `POST /admin/users/:id/activate` / `POST /admin/users/:id/deactivate`
 - **Auth:** `users:write`. Toggles `isActive`.
+
+### `POST /support-requests` (публичный)
+- **Описание:** Форма «оставьте номер» под кнопкой **BOG'LANISH**. Одно поле —
+  телефон. Стоит на всех четырёх витринах, включая `family`.
+- **Auth:** необязательна. С `Bearer` заявка привязывается к аккаунту клиента.
+- **Headers:** `X-Store` **обязателен** (`nutrition|kids|halal|family`) — магазина в
+  теле нет, и именно заголовок отвечает на вопрос «с какого сайта пришёл номер».
+- **Body:** `{ phone: string }` — узбекский номер в любом виде, нормализуется к
+  `+998XXXXXXXXX`. `name` / `problem` / `comment` игнорируются: имя менеджер
+  спросит в первую секунду разговора, а каждое лишнее поле стоит части заявок.
+- Город не спрашиваем — определяется на сервере по IP (best-effort, за VPN
+  заявка принимается без города).
+- **Response 201:** `{ id, status: "new", createdAt }`. Фронту нужен только факт успеха.
+- **Errors:** 400 — не узбекский номер, пустое тело, отсутствующий или неизвестный
+  `X-Store`. 429 — больше 20 заявок в час с одного IP; это не поломка, показать
+  текст и **не ретраить** автоматически.
+- Заявка уезжает в Bitrix24 сама, в одной транзакции с записью в БД. Фронту для
+  этого делать нечего.
+
+### `GET /admin/support-requests`
+- **Auth:** `users:read`.
+- **Query:** `store?: StoreSlug`, `status?: new|in_progress|done|rejected`,
+  `phone?: string` (подстрока, регистронезависимо), `page?=1`, `limit?=20` (макс. 100).
+- **Response:** `{ items, total, page, limit, pages }`, где элемент —
+  `{ id, store, userId, phone, status, managerComment, clientIp, city, country, createdAt, updatedAt }`.
+  `city` / `country` / `clientIp` могут быть `null`; `userId` заполнен только если
+  номер оставил залогиненный клиент.
+- Отдельная сущность и отдельный раздел админки, не «консультация без текста»: у
+  консультации есть обязательное описание проблемы, здесь нет ничего кроме номера.
+
+### `PATCH /admin/support-requests/:id`
+- **Auth:** `users:write`.
+- **Body:** `{ status?, managerComment? }` — хотя бы одно поле обязано быть.
+  `managerComment`: строка ≤ 4000 символов либо `null` (очистить).
+- **Response:** 200 с обновлённой заявкой. 404 — заявки с таким `id` нет.
 
 ### `GET /admin/`
 - **Описание:** Список всех админов.
@@ -497,9 +550,13 @@ Module: `src/product`. Router prefix: `/api/v1/products`.
   | `search`     | string ≤ 200                              | —              |
   | `page`       | int ≥ 1                                   | 1              |
   | `limit`      | int 1–100                                 | 20             |
-  | `sortBy`     | `createdAt|price|name`                    | `createdAt`    |
+  | `sortBy`     | `createdAt|price|name|sortOrder`          | `createdAt`    |
   | `sortDir`    | `asc|desc`                                | `desc`         |
 - **Response:** `{ products, total, page, limit, pages }`.
+- `sortBy=sortOrder` is the manual catalogue order; ties fall back to
+  `createdAt DESC` server-side, which is what keeps paging stable while most of
+  the catalogue still sits at `sortOrder = 0`. On the storefront, "in stock
+  first" still outranks it — sold-out products sink regardless.
 
 ### `GET /products/featured/:store`
 - **Описание:** Товары с `isFeatured=true`, `status=active`.
@@ -556,11 +613,16 @@ Module: `src/product`. Router prefix: `/api/v1/products`.
   | `status`        | `active|draft|archived`                         | no       | default `draft`                        |
   | `isFeatured`    | boolean                                         | no       | default false                          |
   | `brand`         | string 1–120 \| null                            | no       |                                        |
-  | `attributes`    | `{ [k]: string|number|boolean }` \| null         | no       |                                        |
-- **Errors:** 409 (sku+store or slug+store unique), 422.
+  | `attributes`    | JSON object \| null                             | no       | values: string ≤ 2000, number, boolean, null, array ≤ 100 items, nested object ≤ 4 levels |
+  | `sortOrder`     | int 0…100000                                    | no       | default 0, lower is higher up          |
+- **Errors:** 409 (sku+store or slug+store unique), 422. `attributes` nested deeper than 4 levels → 400 `attributes nesting is limited to 4 levels`.
 
 ### `PATCH /products/cms/:id`
 - **Auth:** `products:write` + resource store. Body = partial.
+- `attributes` is **merged**, not replaced: a key absent from the body keeps its
+  stored value, object+object merges recursively, an array or scalar replaces
+  wholesale, `"key": null` deletes that key, `"attributes": null` empties the
+  object, and omitting `attributes` leaves it untouched.
 
 ### `PATCH /products/cms/:id/status`
 - **Body:** `{ "status": "active|draft|archived" }`. Updates only status.
@@ -1255,8 +1317,8 @@ Source: `src/admin/dto/permissionDto.ts` → enum `Permission`. `super_admin` by
 | `blog:write`           | `POST/PATCH /blog/cms*`, publish/archive, attachProduct, updateProduct, detachProduct |
 | `blog:delete`          | `DELETE /blog/cms/:id` (restore is super_admin only)                                 |
 | `site:manage`          | All `/sites/cms/*` (pages, sections, settings, upload)                               |
-| `users:read`           | `GET /admin/users`, `GET /admin/users/:id`                                           |
-| `users:write`          | `POST /admin/users/:id/activate`, `.../deactivate`                                   |
+| `users:read`           | `GET /admin/users`, `GET /admin/users/:id`, `GET /admin/consultations`, `GET /admin/support-requests` |
+| `users:write`          | `POST /admin/users/:id/activate`, `.../deactivate`, `PATCH /admin/consultations/:id`, `PATCH /admin/support-requests/:id` |
 
 `DEFAULT_ADMIN_PERMISSIONS = []` — new admins created by super_admin have no access until permissions are granted.
 
