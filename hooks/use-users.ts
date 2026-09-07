@@ -4,10 +4,18 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { api, extractError } from "@/lib/axios";
 import { queryKeys } from "@/lib/query-client";
-import type { ApiSuccess, User } from "@/lib/types";
+import type { ApiSuccess, StoreSlug, User } from "@/lib/types";
 
 export interface UsersFilters {
   isActive?: boolean;
+  /**
+   * Matches either side of a client's relationship with a storefront —
+   * registered there or active there. Someone who signed up on nutrition and
+   * bought on kids has to turn up under both, because the manager filtering by
+   * "kids" is looking for that site's customers, not for rows with one
+   * particular column value.
+   */
+  store?: StoreSlug;
   page?: number;
   limit?: number;
 }

@@ -27,23 +27,28 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Loader } from "@/components/states/Loader";
 import { ErrorState } from "@/components/states/Error";
 import { Empty } from "@/components/states/Empty";
 import { DataPagination } from "@/components/shared/DataPagination";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { StoreBadge } from "@/components/shared/StoreBadge";
 import { useUsers, useActivateUser, useDeactivateUser } from "@/hooks/use-users";
+import { STORES } from "@/lib/constants";
 import { formatDate } from "@/lib/format";
-import type { User } from "@/lib/types";
+import type { StoreSlug, User } from "@/lib/types";
 
 export const UsersPage = () => {
   const [isActive, setIsActive] = useState<"all" | "true" | "false">("all");
+  const [store, setStore] = useState<StoreSlug | "all">("all");
   const [page, setPage] = useState(1);
   const { data, isLoading, isError, error, refetch } = useUsers({
     page,
     limit: 20,
     isActive: isActive === "all" ? undefined : isActive === "true",
+    store: store === "all" ? undefined : store,
   });
 
   const activate = useActivateUser();
@@ -53,6 +58,29 @@ export const UsersPage = () => {
   return (
     <div className="space-y-5">
       <PageHeader title="Клиенты" description="Зарегистрированные покупатели по всем магазинам" />
+
+      {/*
+        Same tabs as the catalogue, for the same reason: the account itself is
+        shared across the four sites — one phone, one client — so a flat list
+        can't answer "кто мой клиент". The tab asks the API for anyone who
+        either registered on that site or has been active on it.
+      */}
+      <Tabs
+        value={store}
+        onValueChange={(v) => {
+          setStore(v as StoreSlug | "all");
+          setPage(1);
+        }}
+      >
+        <TabsList>
+          <TabsTrigger value="all">Все магазины</TabsTrigger>
+          {STORES.map((s) => (
+            <TabsTrigger key={s.value} value={s.value}>
+              {s.label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
 
       <Card>
         <CardContent className="flex items-center gap-3 p-4">
@@ -82,6 +110,7 @@ export const UsersPage = () => {
                   <TableRow>
                     <TableHead>Клиент</TableHead>
                     <TableHead>Телефон</TableHead>
+                    <TableHead>Магазин</TableHead>
                     <TableHead>Статус</TableHead>
                     <TableHead>Регистрация</TableHead>
                     <TableHead className="w-12" />
@@ -105,6 +134,27 @@ export const UsersPage = () => {
                           </div>
                         </TableCell>
                         <TableCell className="font-mono text-sm">{u.phone}</TableCell>
+                        <TableCell>
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            {/* Written once at the first OTP and never again, so
+                                a dash here means the storefront sent no
+                                X-Store — there is no second chance to record it
+                                and nothing to infer it from. */}
+                            {u.registrationStore ? (
+                              <StoreBadge store={u.registrationStore} />
+                            ) : (
+                              <span className="text-muted-foreground/50">—</span>
+                            )}
+                            {/* Where they've actually been. Shown only when it
+                                adds something the first badge didn't — which is
+                                also what explains a dash. */}
+                            {u.stores
+                              ?.filter((s) => s !== u.registrationStore)
+                              .map((s) => (
+                                <StoreBadge key={s} store={s} className="opacity-60" />
+                              ))}
+                          </div>
+                        </TableCell>
                         <TableCell>
                           {u.isActive ?? true ? (
                             <Badge variant="outline" className="border-teal-500/30 bg-teal-500/10 text-teal-700 dark:text-teal-300">Активен</Badge>
