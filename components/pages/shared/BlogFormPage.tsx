@@ -36,7 +36,7 @@ import {
 } from "@/hooks/use-blog";
 import { useProducts } from "@/hooks/use-products";
 import { useAuthStore } from "@/lib/auth-store";
-import { STORES } from "@/lib/constants";
+import { MARKETPLACE_STORES, STORES } from "@/lib/constants";
 import { formatPrice, getLocalized } from "@/lib/format";
 import type { MarketplaceStoreSlug, StoreSlug } from "@/lib/types";
 
@@ -378,9 +378,11 @@ const BlogProductsPanel = ({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="nutrition">Nutrition</SelectItem>
-                  <SelectItem value="kids">Kids</SelectItem>
-                  <SelectItem value="halal">Halal</SelectItem>
+                  {MARKETPLACE_STORES.map((s) => (
+                    <SelectItem key={s.value} value={s.value}>
+                      {s.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             )}

@@ -14,7 +14,7 @@ export const STORES: {
 }[] = [
   { value: "nutrition", label: "Nutrition", color: "bg-teal-500/10 text-teal-700 dark:text-teal-300", kind: "marketplace" },
   { value: "kids", label: "Kids", color: "bg-amber-500/10 text-amber-700 dark:text-amber-300", kind: "marketplace" },
-  { value: "halal", label: "Halal", color: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300", kind: "marketplace" },
+  { value: "halal", label: "Nabaviy Tabobat", color: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300", kind: "marketplace" },
   { value: "family", label: "Family", color: "bg-rose-500/10 text-rose-700 dark:text-rose-300", kind: "informational" },
 ];
 
@@ -26,10 +26,15 @@ export const MARKETPLACE_STORES = STORES.filter((s) => s.kind === "marketplace")
 }[];
 export const INFORMATIONAL_STORES = STORES.filter((s) => s.kind === "informational");
 
+/**
+ * Slugs are what the API speaks; these are the signboards. `halal` keeps its
+ * historical slug in the database, the `X-Store` header and every past order,
+ * so the rename to Nabaviy Tabobat lives here and nowhere near the wire.
+ */
 export const STORE_LABEL: Record<StoreSlug, string> = {
   nutrition: "Nutrition",
   kids: "Kids",
-  halal: "Halal",
+  halal: "Nabaviy Tabobat",
   family: "Family",
 };
 
