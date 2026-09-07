@@ -355,6 +355,22 @@ export interface User {
   lastName: string;
   phone: string;
   isActive?: boolean;
+  /**
+   * The storefront the account was created on. Written once, at the first OTP
+   * confirmation, and never rewritten — otherwise "where they came from" would
+   * decay into "where they were last", which `stores` already answers.
+   *
+   * Null when the storefront sent no `X-Store` on verify-otp, or when the
+   * account predates the field and the backfill found no order, consultation
+   * or callback to date it from. Show a dash; never guess a store.
+   */
+  registrationStore?: StoreSlug | null;
+  /**
+   * Storefronts the client has actually done something on — ordered, asked for
+   * a consultation, left a number. Computed per request, so an account that
+   * only ever registered comes back with an empty list.
+   */
+  stores?: StoreSlug[];
   createdAt?: string;
   orders?: Order[];
 }
@@ -392,6 +408,39 @@ export interface Consultation {
 /** Unlike orders and products, the list endpoint calls its page `items`. */
 export interface ConsultationsList extends PaginationMeta {
   items: Consultation[];
+}
+
+// ─────────────────────────────────────────────────────────────
+// Support requests ("Обратный звонок")
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * A callback request: a phone number and nothing else, left under the
+ * "BOG'LANISH" button on any of the four storefronts.
+ *
+ * Deliberately not a `Consultation`. A consultation carries a description of
+ * the problem the manager reads before dialling; this carries no name, no
+ * subject and no text, so the two live in separate tables and separate
+ * sections — mixing them would fill the consultation list with blank cards.
+ */
+export interface SupportRequest {
+  id: string;
+  store: StoreSlug;
+  /** Not null when the number was left by a signed-in client. */
+  userId: string | null;
+  phone: string;
+  status: ConsultationStatus;
+  managerComment: string | null;
+  clientIp?: string | null;
+  /** Resolved server-side from the IP — best-effort, see {@link Consultation.city}. */
+  city?: string | null;
+  country?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SupportRequestsList extends PaginationMeta {
+  items: SupportRequest[];
 }
 
 /* ── reviews ─────────────────────────────────────────────────────────────── */

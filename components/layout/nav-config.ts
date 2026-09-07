@@ -13,6 +13,7 @@ import {
   Globe,
   MessageSquareText,
   MessagesSquare,
+  PhoneCall,
 } from "lucide-react";
 import type { NavGroup } from "./Sidebar";
 
@@ -38,6 +39,17 @@ export const adminNav: NavGroup[] = [
         label: "Консультации",
         href: "/admin/consultations",
         icon: MessageSquareText,
+        permission: "users:read",
+      },
+      /*
+       * Its own section, next to consultations but never merged into them: a
+       * callback carries a number and nothing else, so it would arrive in the
+       * consultation list as a blank card and make that list useless.
+       */
+      {
+        label: "Обратный звонок",
+        href: "/admin/support-requests",
+        icon: PhoneCall,
         permission: "users:read",
       },
     ],
@@ -88,6 +100,12 @@ export const superAdminNav: NavGroup[] = [
         label: "Консультации",
         href: "/super-admin/consultations",
         icon: MessageSquareText,
+        permission: "users:read",
+      },
+      {
+        label: "Обратный звонок",
+        href: "/super-admin/support-requests",
+        icon: PhoneCall,
         permission: "users:read",
       },
     ],
