@@ -1,20 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import {
-  ArrowLeft,
-  ImagePlus,
-  Plus,
-  Save,
-  Star,
-  Trash2,
-  Upload,
-} from "lucide-react";
+import { ArrowLeft, Save, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -33,16 +25,12 @@ import { Spinner } from "@/components/ui/spinner";
 import { Loader } from "@/components/states/Loader";
 import { ErrorState } from "@/components/states/Error";
 import { PageHeader } from "@/components/shared/PageHeader";
-import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { ProductLandingEditor } from "@/components/pages/shared/product-landing/ProductLandingEditor";
+import { ImageSlotsPanel } from "@/components/pages/shared/product-media/ImageSlotsPanel";
 import {
   useProduct,
   useCreateProduct,
   useUpdateProduct,
-  useAddProductMedia,
-  useUploadProductMedia,
-  useDeleteProductMedia,
-  useSetMainMedia,
 } from "@/hooks/use-products";
 import { useCategoriesByStore } from "@/hooks/use-categories";
 import { useAuthStore } from "@/lib/auth-store";
@@ -276,7 +264,13 @@ export const ProductFormPage = ({ basePath, productId }: ProductFormPageProps) =
               </CardContent>
             </Card>
 
-            {isEdit && product && <MediaPanel productId={product.id} media={product.media} />}
+            {isEdit && product && (
+              <ImageSlotsPanel
+                productId={product.id}
+                media={product.media}
+                images={product.images}
+              />
+            )}
           </div>
 
           <div className="space-y-5">
@@ -436,136 +430,3 @@ const LocalizedTextarea = ({
   </div>
 );
 
-const MediaPanel = ({
-  productId,
-  media,
-}: {
-  productId: string;
-  media: { id: string; url: string; isMain: boolean; type: string }[];
-}) => {
-  const [url, setUrl] = useState("");
-  const [toDelete, setToDelete] = useState<string | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const add = useAddProductMedia();
-  const upload = useUploadProductMedia();
-  const del = useDeleteProductMedia();
-  const setMain = useSetMainMedia();
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">Медиа</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <input
-          ref={inputRef}
-          type="file"
-          hidden
-          multiple
-          accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm"
-          onChange={(e) => {
-            const files = Array.from(e.target.files ?? []);
-            if (files.length) {
-              upload.mutate({
-                id: productId,
-                files,
-                isMain: media.length === 0,
-                sortOrder: media.length,
-              });
-            }
-            e.target.value = "";
-          }}
-        />
-        <Button
-          type="button"
-          variant="outline"
-          className="w-full"
-          onClick={() => inputRef.current?.click()}
-          disabled={upload.isPending}
-        >
-          {upload.isPending ? <Spinner className="size-4" /> : <Upload className="size-4" />}
-          Загрузить файлы
-        </Button>
-        <div className="flex gap-2">
-          <Input
-            placeholder="или URL: https://cdn.numa.uz/products/image.webp"
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-          />
-          <Button
-            type="button"
-            onClick={() => {
-              if (!url) return;
-              add.mutate(
-                { id: productId, url, type: "image", isMain: media.length === 0 },
-                { onSuccess: () => setUrl("") }
-              );
-            }}
-            disabled={add.isPending || !url}
-          >
-            {add.isPending ? <Spinner className="size-4" /> : <Plus className="size-4" />}
-            Добавить
-          </Button>
-        </div>
-        {media.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
-            <ImagePlus className="size-6" />
-            Медиа ещё не добавлены
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-            {media.map((m) => (
-              <div
-                key={m.id}
-                className="group relative aspect-square overflow-hidden rounded-lg border bg-muted"
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={m.url} alt="" className="size-full object-cover" />
-                {m.isMain && (
-                  <span className="absolute left-1.5 top-1.5 rounded-md bg-primary px-2 py-0.5 text-[10px] font-medium text-primary-foreground">
-                    Главное
-                  </span>
-                )}
-                <div className="absolute inset-0 flex items-end justify-center gap-1 bg-gradient-to-t from-black/70 via-transparent p-2 opacity-0 transition-opacity group-hover:opacity-100">
-                  {!m.isMain && (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => setMain.mutate({ id: productId, mediaId: m.id })}
-                    >
-                      <Star className="size-3" />
-                    </Button>
-                  )}
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="destructive"
-                    onClick={() => setToDelete(m.id)}
-                  >
-                    <Trash2 className="size-3" />
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </CardContent>
-      <ConfirmDialog
-        open={!!toDelete}
-        onOpenChange={(v) => !v && setToDelete(null)}
-        title="Удалить изображение?"
-        confirmText="Удалить"
-        destructive
-        loading={del.isPending}
-        onConfirm={() => {
-          if (!toDelete) return;
-          del.mutate(
-            { id: productId, mediaId: toDelete },
-            { onSuccess: () => setToDelete(null) }
-          );
-        }}
-      />
-    </Card>
-  );
-};

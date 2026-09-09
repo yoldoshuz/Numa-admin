@@ -6,6 +6,8 @@ import { api, extractError } from "@/lib/axios";
 import { queryKeys } from "@/lib/query-client";
 import type {
   ApiSuccess,
+  ImageSlotKey,
+  ImageSlotMeta,
   LocalizedText,
   Product,
   ProductMedia,
@@ -294,6 +296,130 @@ export const useSetMainMedia = () => {
     onSuccess: (_, { id }) => {
       qc.invalidateQueries({ queryKey: queryKeys.products.detail(id) });
       toast.success("Главное изображение установлено");
+    },
+    onError: (e) => toast.error(extractError(e)),
+  });
+};
+
+/* ── image slots ─────────────────────────────────────────────────────────── */
+
+/**
+ * The reference list of slots, in the order the editor should draw them.
+ *
+ * Fetched rather than hardcoded on purpose: the row order is also the order of
+ * the sections on the storefront page, so a slot the backend adds or reorders
+ * shows up here without a frontend release. Cached for the session — it is a
+ * schema, not data, and it does not change while an editor is open.
+ */
+export const useImageSlots = () =>
+  useQuery({
+    queryKey: queryKeys.products.imageSlots,
+    queryFn: async () => {
+      const { data } = await api.get<
+        ApiSuccess<{ slots: ImageSlotMeta[] } | ImageSlotMeta[]>
+      >("/products/cms/media/slots");
+      // Both shapes are accepted because getting this wrong fails loudly and
+      // totally: without the reference list the panel has no dropzones to draw
+      // at all, and the other endpoints on this screen mix bare arrays with
+      // wrapped objects already.
+      const payload = data.data;
+      return Array.isArray(payload) ? payload : payload.slots;
+    },
+    staleTime: Infinity,
+  });
+
+/**
+ * Refreshes a product after its pictures moved.
+ *
+ * The list is refreshed too, not just the detail: filling `gallery_1` moves the
+ * `isMain` flag server-side, so the thumbnail the products table shows has
+ * changed as well. The prefix is spelled out rather than reusing
+ * `queryKeys.products.all` on purpose — that one also covers the slot reference,
+ * which is read once per session and has no reason to be re-fetched every time
+ * someone drops a file.
+ */
+const invalidateProductImages = (qc: QueryClient, id: string) => {
+  qc.invalidateQueries({ queryKey: queryKeys.products.detail(id) });
+  qc.invalidateQueries({ queryKey: ["products", "list"] });
+};
+
+/**
+ * Fills one slot, from either a file or a CDN URL.
+ *
+ * The call replaces whatever was there — there is no clear-then-upload step,
+ * which is what kept the old flat list from ever being in a half-saved state.
+ * Filling `gallery_1` also moves the `isMain` flag, server-side.
+ */
+export const usePutImageSlot = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      slot,
+      file,
+      url,
+    }: {
+      id: string;
+      slot: ImageSlotKey;
+      file?: File;
+      url?: string;
+    }) => {
+      const path = `/products/cms/${id}/media/slot/${slot}`;
+      if (file) {
+        const fd = new FormData();
+        fd.append("file", file);
+        const { data } = await api.put<ApiSuccess<ProductMedia>>(path, fd, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+        return data.data;
+      }
+      const { data } = await api.put<ApiSuccess<ProductMedia>>(path, { url });
+      return data.data;
+    },
+    onSuccess: (_, { id }) => {
+      invalidateProductImages(qc, id);
+      toast.success("Изображение загружено");
+    },
+    onError: (e) => toast.error(extractError(e)),
+  });
+};
+
+export const useClearImageSlot = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, slot }: { id: string; slot: ImageSlotKey }) => {
+      await api.delete(`/products/cms/${id}/media/slot/${slot}`);
+    },
+    onSuccess: (_, { id }) => {
+      invalidateProductImages(qc, id);
+      toast.success("Слот очищен");
+    },
+    onError: (e) => toast.error(extractError(e)),
+  });
+};
+
+/**
+ * Swaps two slots' contents.
+ *
+ * Also the way to *move* a picture: the API accepts a swap where one side is
+ * empty, so the editor's arrows need no separate code path for that case.
+ */
+export const useSwapImageSlots = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      from,
+      to,
+    }: {
+      id: string;
+      from: ImageSlotKey;
+      to: ImageSlotKey;
+    }) => {
+      await api.patch(`/products/cms/${id}/media/slots/swap`, { from, to });
+    },
+    onSuccess: (_, { id }) => {
+      invalidateProductImages(qc, id);
     },
     onError: (e) => toast.error(extractError(e)),
   });

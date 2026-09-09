@@ -60,6 +60,61 @@ export interface ProductMedia {
   type: "image" | "video";
   isMain: boolean;
   sortOrder: number;
+  /**
+   * Which named place on the storefront page this file fills.
+   *
+   * `null` on videos and on anything uploaded before slots existed: those are
+   * reachable through `media` but the storefront no longer renders them, since
+   * it now asks for pictures by name rather than walking the array.
+   */
+  slot: ImageSlotKey | null;
+}
+
+/**
+ * The fifteen named places a product picture can occupy.
+ *
+ * Kept as a type only — the list the editor draws comes from
+ * `GET /products/cms/media/slots`, so a slot added on the backend needs no
+ * release here. This union exists to stop a typo reaching a URL path.
+ */
+export type ImageSlotKey =
+  | "gallery_1"
+  | "gallery_2"
+  | "gallery_3"
+  | "gallery_4"
+  | "hero_bg"
+  | "about_1"
+  | "benefits_1"
+  | "benefits_2"
+  | "how_to_use_1"
+  | "composition_1"
+  | "metrics_1"
+  | "advantages_1"
+  | "lifestyle_1"
+  | "certificate_1"
+  | "banner_wide";
+
+/** One filled slot. `width`/`height` are the slot's spec, not the file's. */
+export interface ProductImage {
+  url: string;
+  width: number;
+  height: number;
+}
+
+/**
+ * A slot's entry in the reference list.
+ *
+ * `group` splits the overview slider (`gallery`) from the pictures that sit
+ * inside landing sections (`info`) — the editor groups its dropzones by it.
+ */
+export interface ImageSlotMeta {
+  slot: ImageSlotKey;
+  group: "gallery" | "info";
+  label: LocalizedText;
+  width: number;
+  height: number;
+  aspectRatio: string;
+  required: boolean;
 }
 
 export type ProductStatus = "active" | "draft" | "archived";
@@ -98,6 +153,15 @@ export interface Product {
    */
   sortOrder: number;
   media: ProductMedia[];
+  /**
+   * The same files as `media`, keyed by the place they fill.
+   *
+   * All fifteen keys are always present — an empty slot is `null`, never a
+   * missing key — so the editor can render its dropzones from the reference
+   * list without guarding every lookup. Absent entirely on list endpoints,
+   * which only send `media`; hence optional here.
+   */
+  images?: Partial<Record<ImageSlotKey, ProductImage | null>>;
   category?: Category;
   createdAt?: string;
   updatedAt?: string;

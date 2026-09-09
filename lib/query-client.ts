@@ -37,6 +37,7 @@ export const queryKeys = {
     detail: (id: string) => ["products", "detail", id] as const,
     blocks: (id: string) => ["products", "blocks", id] as const,
     blockSchemas: ["products", "block-schemas"] as const,
+    imageSlots: ["products", "image-slots"] as const,
   },
   categories: {
     all: ["categories"] as const,
